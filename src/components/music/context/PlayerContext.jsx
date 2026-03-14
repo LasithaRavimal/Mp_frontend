@@ -1,15 +1,16 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { useAuth } from "../../../context/AuthContext";
-import { useSession } from "../../../components/music/context/SessionContext";
-import { showWarningToast } from "../../../utils/notifications";
-import apiClient from "../../../api/apiClient";
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { useSession } from '../../../components/music/context/SessionContext';
+import { handleSessionEnd } from '../../../utils/musicSessionEndHandler';
+import { showWarningToast } from '../../../utils/notifications';
+import apiClient from '../../../api/apiClient';
 
 const PlayerContext = createContext(null);
 
 export const usePlayer = () => {
   const context = useContext(PlayerContext);
   if (!context) {
-    throw new Error("usePlayer must be used within PlayerProvider");
+    throw new Error('usePlayer must be used within PlayerProvider');
   }
   return context;
 };
@@ -18,7 +19,7 @@ export const PlayerProvider = ({ children }) => {
 
   const audioRef = useRef(null);
 
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const session = useSession();
 
   const {
@@ -28,6 +29,7 @@ export const PlayerProvider = ({ children }) => {
     trackSkip,
     trackRepeat,
     trackVolumeChange,
+    updateActivity,
     isAdmin: sessionIsAdmin
   } = session;
 
@@ -37,34 +39,34 @@ export const PlayerProvider = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
+  const [showPredictionModal, setShowPredictionModal] = useState(false);
+  const [prediction, setPrediction] = useState(null);
 
   const [songQueue, setSongQueue] = useState([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
-
   const [shuffleMode, setShuffleMode] = useState(false);
   const [originalQueue, setOriginalQueue] = useState([]);
 
   const playStartTimeRef = useRef(null);
-
-  const BASE_URL = "https://music-player-col8.onrender.com";
+  const previousSongIdRef = useRef(null);
 
   /* ---------------- QUEUE ---------------- */
 
   const buildQueue = useCallback(async (initialSong) => {
     try {
 
-      const response = await apiClient.get("/songs");
-      const songs = response.data || [];
+      const response = await apiClient.get('/songs');
+      const allSongs = response.data || [];
 
-      const initialIndex = songs.findIndex(s => s.id === initialSong.id);
+      const initialIndex = allSongs.findIndex(s => s.id === initialSong.id);
 
-      setSongQueue(songs);
-      setOriginalQueue(songs);
+      setSongQueue(allSongs);
+      setOriginalQueue(allSongs);
       setCurrentQueueIndex(initialIndex >= 0 ? initialIndex : 0);
 
     } catch (error) {
 
-      console.error("Queue load failed", error);
+      console.error('Failed to load songs for queue:', error);
 
       setSongQueue([initialSong]);
       setOriginalQueue([initialSong]);
@@ -77,85 +79,46 @@ export const PlayerProvider = ({ children }) => {
 
   const onPlaySong = useCallback(async (song) => {
 
-    if (!song) return;
-
     const isDifferentSong = currentSong && currentSong.id !== song.id;
 
-    if (isDifferentSong && audioRef.current) {
-      audioRef.current.currentTime = 0;
+    if (isDifferentSong) {
       setCurrentTime(0);
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+      }
+      localStorage.removeItem(`currentTime_${song.id}`);
     }
 
-    setSongQueue(prev => {
+    setSongQueue(prevQueue => {
 
-      if (prev.length === 0) {
-        buildQueue(song);
-        return prev;
+      if (prevQueue.length === 0 || !prevQueue.find(s => s.id === song.id)) {
+
+        buildQueue(song).catch(console.error);
+        return prevQueue;
+
+      } else {
+
+        const index = prevQueue.findIndex(s => s.id === song.id);
+
+        if (index >= 0) setCurrentQueueIndex(index);
+
+        return prevQueue;
+
       }
-
-      const index = prev.findIndex(s => s.id === song.id);
-      if (index >= 0) setCurrentQueueIndex(index);
-
-      return prev;
 
     });
 
     setCurrentSong(song);
 
-    const audio = audioRef.current;
+  }, [currentSong, buildQueue]);
 
-    if (audio) {
-
-      audio.src = BASE_URL + song.audio_url;
-
-      await new Promise(resolve => {
-
-        const handle = () => {
-          audio.removeEventListener("canplay", handle);
-          resolve();
-        };
-
-        audio.addEventListener("canplay", handle);
-        audio.load();
-
-      });
-
-      try {
-        await audio.play();
-      } catch (err) {
-        console.error("Audio play error", err);
-      }
-
-    }
-
-    let activeSessionId = session.activeSession;
-
-    if (!activeSessionId && !sessionIsAdmin) {
-      activeSessionId = await startSession(song.id);
-    }
-
-    if (activeSessionId && !sessionIsAdmin) {
-
-      playStartTimeRef.current = 0;
-
-      trackSongPlay(
-        song.id,
-        song.category || "calm",
-        playStartTimeRef.current
-      );
-
-    }
-
-    setIsPlaying(true);
-
-  }, [currentSong, startSession, session, sessionIsAdmin, trackSongPlay, buildQueue]);
-
-  /* ---------------- LOAD STATE ---------------- */
+  /* ---------------- PLAYER STATE ---------------- */
 
   useEffect(() => {
 
-    const savedSong = localStorage.getItem("currentSong");
-    const savedVolume = localStorage.getItem("volume");
+    const savedSong = localStorage.getItem('currentSong');
+    const savedIsPlaying = localStorage.getItem('isPlaying');
+    const savedVolume = localStorage.getItem('volume');
 
     if (savedSong) {
       try {
@@ -163,48 +126,60 @@ export const PlayerProvider = ({ children }) => {
       } catch {}
     }
 
-    if (savedVolume) {
-      const v = parseFloat(savedVolume);
-      setVolume(v);
+    if (savedIsPlaying === 'true') setIsPlaying(true);
 
-      if (audioRef.current)
-        audioRef.current.volume = v;
-    }
+    if (savedVolume) setVolume(parseFloat(savedVolume));
 
   }, []);
 
   useEffect(() => {
     if (currentSong)
-      localStorage.setItem("currentSong", JSON.stringify(currentSong));
+      localStorage.setItem('currentSong', JSON.stringify(currentSong));
   }, [currentSong]);
 
   useEffect(() => {
-    localStorage.setItem("volume", volume.toString());
+    localStorage.setItem('isPlaying', isPlaying.toString());
+  }, [isPlaying]);
+
+  useEffect(() => {
+    localStorage.setItem('volume', volume.toString());
   }, [volume]);
+
+  /* ---------------- LOAD AUDIO ---------------- */
+
+  useEffect(() => {
+
+    if (currentSong && audioRef.current) {
+
+      const backend = import.meta.env.VITE_BACKEND_URL;
+
+      audioRef.current.src =
+        backend + currentSong.audio_url;
+
+      audioRef.current.load();
+
+      if (isPlaying) {
+        audioRef.current.play().catch(console.error);
+      }
+
+    }
+
+  }, [currentSong, isPlaying]);
 
   /* ---------------- AUDIO EVENTS ---------------- */
 
   useEffect(() => {
 
     const audio = audioRef.current;
+
     if (!audio) return;
 
-    const handleTime = () => setCurrentTime(audio.currentTime);
-    const handleMeta = () => setDuration(audio.duration);
-    const handlePlay = () => setIsPlaying(true);
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
 
-    const handlePause = () => {
-
-      setIsPlaying(false);
-
-      if (currentSong && playStartTimeRef.current !== null) {
-
-        const duration = audio.currentTime - playStartTimeRef.current;
-
-        trackSongPause(currentSong.id, duration);
-
-      }
-
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
     };
 
     const handleEnded = async () => {
@@ -216,15 +191,21 @@ export const PlayerProvider = ({ children }) => {
         let nextIndex;
 
         if (shuffleMode) {
+
           nextIndex = Math.floor(Math.random() * songQueue.length);
+
         } else {
+
           nextIndex = currentQueueIndex + 1;
+
           if (nextIndex >= songQueue.length) nextIndex = 0;
+
         }
 
         if (songQueue[nextIndex]) {
 
           setCurrentQueueIndex(nextIndex);
+
           await onPlaySong(songQueue[nextIndex]);
 
         }
@@ -233,35 +214,52 @@ export const PlayerProvider = ({ children }) => {
 
     };
 
-    audio.addEventListener("timeupdate", handleTime);
-    audio.addEventListener("loadedmetadata", handleMeta);
-    audio.addEventListener("play", handlePlay);
-    audio.addEventListener("pause", handlePause);
-    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('ended', handleEnded);
 
     return () => {
 
-      audio.removeEventListener("timeupdate", handleTime);
-      audio.removeEventListener("loadedmetadata", handleMeta);
-      audio.removeEventListener("play", handlePlay);
-      audio.removeEventListener("pause", handlePause);
-      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('ended', handleEnded);
 
     };
 
-  }, [currentSong, songQueue, currentQueueIndex, shuffleMode, onPlaySong, trackSongPause]);
+  }, [songQueue, currentQueueIndex, shuffleMode, onPlaySong]);
 
   /* ---------------- CONTROLS ---------------- */
 
-  const handlePlayPause = useCallback(() => {
+  const handlePlayPause = useCallback(async () => {
 
-    const audio = audioRef.current;
-    if (!audio) return;
+    if (!currentSong) return;
 
-    if (isPlaying) audio.pause();
-    else audio.play();
+    if (isPlaying) {
 
-  }, [isPlaying]);
+      audioRef.current.pause();
+      setIsPlaying(false);
+
+    } else {
+
+      if (!session.activeSession && !sessionIsAdmin) {
+        await startSession(currentSong.id);
+      }
+
+      audioRef.current.play();
+
+      if (session.activeSession && !sessionIsAdmin) {
+        trackSongPlay(
+          currentSong.id,
+          currentSong.category || 'calm',
+          audioRef.current.currentTime
+        );
+      }
+
+      setIsPlaying(true);
+
+    }
+
+  }, [currentSong, isPlaying, session, sessionIsAdmin]);
 
   const handleSkip = useCallback(async () => {
 
@@ -270,40 +268,100 @@ export const PlayerProvider = ({ children }) => {
     trackSkip(currentSong.id);
 
     let nextIndex = currentQueueIndex + 1;
+
     if (nextIndex >= songQueue.length) nextIndex = 0;
 
     setCurrentQueueIndex(nextIndex);
 
     await onPlaySong(songQueue[nextIndex]);
 
-  }, [songQueue, currentSong, currentQueueIndex, trackSkip, onPlaySong]);
+  }, [currentSong, songQueue, currentQueueIndex, onPlaySong]);
 
   const handleRepeat = useCallback(() => {
 
-    const audio = audioRef.current;
-    if (!audio) return;
+    if (!audioRef.current) return;
 
     trackRepeat(currentSong.id);
 
-    audio.currentTime = 0;
-    audio.play();
+    audioRef.current.currentTime = 0;
 
-  }, [currentSong, trackRepeat]);
+    audioRef.current.play();
 
-  const handleVolumeChange = useCallback((v) => {
+  }, [currentSong]);
 
-    setVolume(v);
+  const handleVolumeChange = useCallback((newVolume) => {
 
-    if (audioRef.current)
-      audioRef.current.volume = v;
+    setVolume(newVolume);
 
-    trackVolumeChange(v);
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
+    }
 
-  }, [trackVolumeChange]);
+    trackVolumeChange(newVolume);
+
+  }, []);
 
   const handleShuffle = () => {
+
     setShuffleMode(!shuffleMode);
+
   };
+
+  /* ---------------- END SESSION ---------------- */
+
+  const handleEndSession = useCallback(async () => {
+
+    if (
+      audioRef.current &&
+      currentSong &&
+      playStartTimeRef.current !== null &&
+      !sessionIsAdmin
+    ) {
+
+      const listenedDuration =
+        audioRef.current.currentTime - playStartTimeRef.current;
+
+      if (listenedDuration > 0) {
+        trackSongPause(currentSong.id, listenedDuration);
+      }
+
+    }
+
+    const totalListeningSeconds =
+      Array.from(session.songDurations.values())
+        .reduce((sum, duration) => sum + duration, 0);
+
+    const MINIMUM_LISTENING_TIME_SECONDS = 300;
+
+    if (totalListeningSeconds < MINIMUM_LISTENING_TIME_SECONDS) {
+
+      const remainingMinutes =
+        Math.ceil((MINIMUM_LISTENING_TIME_SECONDS - totalListeningSeconds) / 60);
+
+      showWarningToast(
+        `Keep listening at least 5 minutes for better accuracy.
+You need ${remainingMinutes} more minute(s).`,
+        6000
+      );
+
+      return;
+
+    }
+
+    await handleSessionEnd(session, (pred) => {
+
+      setPrediction(pred);
+      setShowPredictionModal(true);
+
+    });
+
+    if (audioRef.current) audioRef.current.pause();
+
+    setIsPlaying(false);
+
+    playStartTimeRef.current = null;
+
+  }, [session, currentSong]);
 
   /* ---------------- CONTEXT VALUE ---------------- */
 
@@ -319,12 +377,19 @@ export const PlayerProvider = ({ children }) => {
     setShowExpanded,
 
     currentTime,
-    duration,
-    volume,
+    setCurrentTime,
 
-    audioRef,
+    duration,
+    setDuration,
+
+    volume,
+    setVolume,
 
     onPlaySong,
+
+    activeSession: session.activeSession,
+
+    audioRef,
 
     handlePlayPause,
     handleSkip,
@@ -334,7 +399,13 @@ export const PlayerProvider = ({ children }) => {
 
     shuffleMode,
 
-    activeSession: session.activeSession
+    handleEndSession,
+
+    showPredictionModal,
+    setShowPredictionModal,
+
+    prediction,
+    setPrediction
 
   };
 
@@ -344,7 +415,7 @@ export const PlayerProvider = ({ children }) => {
 
       {children}
 
-      <audio ref={audioRef} preload="metadata" />
+      <audio ref={audioRef} />
 
     </PlayerContext.Provider>
 

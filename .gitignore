@@ -80,3 +80,4 @@ temp/
 # OS
 Thumbs.db
 
+.env

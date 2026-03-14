@@ -173,15 +173,19 @@ const SongManagement = () => {
   const getThumbnailUrl = (thumbnailUrl) => {
   if (!thumbnailUrl) return null;
 
+  // if already full URL
   if (thumbnailUrl.startsWith("http")) {
     return thumbnailUrl;
   }
 
-  const apiBaseUrl =
-    import.meta.env.VITE_API_URL || "https://music-player-col8.onrender.com";
+  // 🔥 use backend URL (NOT API URL)
+  const backendUrl =
+    import.meta.env.VITE_BACKEND_URL ||
+    "https://music-player-col8.onrender.com";
 
-  return `${apiBaseUrl}${thumbnailUrl}`;
+  return `${backendUrl}${thumbnailUrl}`;
 };
+
 
 
   return (
