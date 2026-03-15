@@ -1,50 +1,29 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabase_url = "https://pcggmqnvyptjpvolupyf.supabase.co";
-const anon_key = "YOUR_ANON_KEY";
+const anon_key =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjZ2dtcW52eXB0anB2b2x1cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NjMyNzMsImV4cCI6MjA4OTEzOTI3M30.eE2JxMf_fONL9sd9kWO1j113VF-Td_RFo_tmlDD_UGk";
 
 const supabase = createClient(supabase_url, anon_key);
 
-export async function uploadImage(file) {
+export default async function mediaUpload(file, bucket) {
+  if (!file) {
+    throw new Error("No file selected");
+  }
 
-  if (!file) throw new Error("No file selected");
-
-  const fileName = Date.now() + "-" + file.name;
+  const timestamp = Date.now();
+  const fileName = `${timestamp}_${file.name}`;
 
   const { error } = await supabase.storage
-    .from("images")
+    .from(bucket)
     .upload(fileName, file);
 
   if (error) {
-    console.error(error);
-    throw new Error("Image upload failed");
+    throw error;
   }
 
   const { data } = supabase.storage
-    .from("images")
-    .getPublicUrl(fileName);
-
-  return data.publicUrl;
-}
-
-
-export async function uploadSong(file) {
-
-  if (!file) throw new Error("No file selected");
-
-  const fileName = Date.now() + "-" + file.name;
-
-  const { error } = await supabase.storage
-    .from("songs")
-    .upload(fileName, file);
-
-  if (error) {
-    console.error(error);
-    throw new Error("Song upload failed");
-  }
-
-  const { data } = supabase.storage
-    .from("songs")
+    .from(bucket)
     .getPublicUrl(fileName);
 
   return data.publicUrl;
