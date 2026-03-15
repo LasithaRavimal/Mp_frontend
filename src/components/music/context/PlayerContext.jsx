@@ -147,24 +147,25 @@ export const PlayerProvider = ({ children }) => {
 
   /* ---------------- LOAD AUDIO ---------------- */
 
-  useEffect(() => {
+ useEffect(() => {
 
-    if (currentSong && audioRef.current) {
+  if (currentSong && audioRef.current) {
 
-      const backend = import.meta.env.VITE_BACKEND_URL;
+    const audioUrl = currentSong.audio_url.startsWith("http")
+      ? currentSong.audio_url
+      : `${import.meta.env.VITE_BACKEND_URL}${currentSong.audio_url}`;
 
-      audioRef.current.src =
-        backend + currentSong.audio_url;
+    audioRef.current.src = audioUrl;
 
-      audioRef.current.load();
+    audioRef.current.load();
 
-      if (isPlaying) {
-        audioRef.current.play().catch(console.error);
-      }
-
+    if (isPlaying) {
+      audioRef.current.play().catch(console.error);
     }
 
-  }, [currentSong, isPlaying]);
+  }
+
+}, [currentSong, isPlaying]);
 
   /* ---------------- AUDIO EVENTS ---------------- */
 
