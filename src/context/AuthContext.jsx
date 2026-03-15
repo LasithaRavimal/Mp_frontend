@@ -15,30 +15,49 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  /* =========================
+     INITIAL AUTH CHECK
+  ========================= */
+
   useEffect(() => {
-    // Check if user is logged in on mount
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    
-    if (token && savedUser) {
+    const initAuth = async () => {
       try {
-        setUser(JSON.parse(savedUser));
-        // Verify token is still valid
-        checkAuth();
-      } catch (e) {
+        const token = localStorage.getItem('token');
+        const savedUser = localStorage.getItem('user');
+
+        if (token && savedUser) {
+          // restore user from localStorage
+          setUser(JSON.parse(savedUser));
+
+          // verify token with backend
+          await checkAuth();
+        }
+      } catch (error) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    initAuth();
   }, []);
+
+  /* =========================
+     VERIFY TOKEN
+  ========================= */
 
   const checkAuth = async () => {
     try {
       const response = await apiClient.get('/auth/me');
-      setUser(response.data);
-      localStorage.setItem('user', JSON.stringify(response.data));
-      return response.data;
+
+      const userData = response.data;
+
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      return userData;
     } catch (error) {
       setUser(null);
       localStorage.removeItem('token');
@@ -47,78 +66,113 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /* =========================
+     LOGIN
+  ========================= */
+
   const login = async (email, password) => {
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post('/auth/login', {
+        email,
+        password
+      });
+
       const { access_token, user: userData } = response.data;
-      
+
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
+
       setUser(userData);
-      
+
       return { success: true, user: userData };
+
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.detail || 'Login failed' 
+
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Login failed'
       };
+
     }
   };
 
+  /* =========================
+     REGISTER
+  ========================= */
+
   const register = async (email, password) => {
     try {
-      const response = await apiClient.post('/auth/register', { 
-        email, 
+      const response = await apiClient.post('/auth/register', {
+        email,
         password,
         role: 'user'
       });
+
       const { access_token, user: userData } = response.data;
-      
+
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
+
       setUser(userData);
-      
+
       return { success: true, user: userData };
+
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.detail || 'Registration failed' 
+
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Registration failed'
       };
+
     }
   };
+
+  /* =========================
+     GOOGLE LOGIN
+  ========================= */
 
   const googleLogin = async (token) => {
     try {
       const response = await apiClient.post('/auth/google', { token });
+
       const { access_token, user: userData } = response.data;
-      
+
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
+
       setUser(userData);
-      
+
       return { success: true, user: userData };
+
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.detail || 'Google sign in failed' 
+
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Google sign in failed'
       };
+
     }
   };
 
+  /* =========================
+     LOGOUT
+  ========================= */
+
   const logout = async () => {
     try {
-      // Call logout endpoint to send email before clearing token
-      await apiClient.post('/auth/logout').catch(() => {
-        // Ignore errors - continue with logout even if email fails
-      });
+      await apiClient.post('/auth/logout').catch(() => {});
     } catch (error) {
-      // Ignore errors - continue with logout
+      // ignore logout errors
     } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setUser(null);
     }
   };
+
+  /* =========================
+     CONTEXT VALUE
+  ========================= */
 
   const value = {
     user,
@@ -129,9 +183,12 @@ export const AuthProvider = ({ children }) => {
     logout,
     checkAuth,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'admin',
+    isAdmin: user?.role === 'admin'
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
-

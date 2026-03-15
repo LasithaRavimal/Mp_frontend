@@ -127,7 +127,7 @@ export const showToast = (message, type = 'info', duration = 5000) => {
   toast._timeout = autoRemove;
   
   // Browser notification if permission granted
-  if (Notification.permission === 'granted') {
+  if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('M_Track', {
       body: message,
       icon: '/favicon.ico'

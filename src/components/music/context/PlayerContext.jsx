@@ -242,7 +242,8 @@ export const PlayerProvider = ({ children }) => {
     } else {
 
       if (!session.activeSession && !sessionIsAdmin) {
-        await startSession(currentSong.id);
+        const sessionId = await startSession(currentSong.id);
+        if (!sessionId) return;
       }
 
       audioRef.current.play();

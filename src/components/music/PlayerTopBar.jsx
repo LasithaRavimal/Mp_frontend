@@ -102,7 +102,7 @@ const TopBar = () => {
               <button
                 onClick={() => {
                   setShowProfileDropdown(false);
-                  navigate('/profile-musicprofile');
+                  navigate('/music-profile');
                 }}
                 className="w-full px-4 py-2 text-sm text-white hover:bg-spotify-gray flex items-center gap-3 transition-colors"
               >
@@ -113,7 +113,7 @@ const TopBar = () => {
               <button
                 onClick={() => {
                   setShowProfileDropdown(false);
-                  navigate('/musicprofile-settings');
+                  navigate('/music-profile-settings');
                 }}
                 className="w-full px-4 py-2 text-sm text-white hover:bg-spotify-gray flex items-center gap-3 transition-colors"
               >
