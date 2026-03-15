@@ -70,6 +70,8 @@ const PlayerBar = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  
+
   return (
     <>
       <div className="bg-spotify-light-gray border-t border-spotify-black px-6 py-3 flex items-center justify-between fixed bottom-0 left-0 right-0 z-50 h-[90px]">
@@ -79,7 +81,7 @@ const PlayerBar = () => {
             <>
               {currentSong.thumbnail_url ? (
                 <img
-                  src={currentSong.thumbnail_url}
+                  src={getThumbnailUrl(currentSong.thumbnail_url)}
                   alt={currentSong.title}
                   className="w-14 h-14 rounded object-cover shadow-md"
                 />

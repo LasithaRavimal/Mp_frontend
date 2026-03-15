@@ -1,24 +1,24 @@
-import axios from 'axios';
+import axios from "axios";
 
-// const apiClient = axios.create({
-//   baseURL: '/api',
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-// });
+/* =========================
+   AXIOS INSTANCE
+========================= */
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL || "https://music-player-col8.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: false,
 });
 
+/* =========================
+   REQUEST INTERCEPTOR
+========================= */
 
-// Attach JWT token automatically
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -29,14 +29,20 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle unauthorized responses
+/* =========================
+   RESPONSE INTERCEPTOR
+========================= */
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      console.warn("Unauthorized. Logging out user.");
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      window.location.href = "/login";
     }
 
     return Promise.reject(error);

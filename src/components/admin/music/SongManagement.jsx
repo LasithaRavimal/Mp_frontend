@@ -3,6 +3,7 @@ import AdminSidebar from './AdminSidebar';
 import SongEditModal from '../music/SongEditModal';
 import apiClient from '../../../api/apiClient';
 import { SONG_CATEGORIES } from './constants/categories';
+import mediaUpload from '../../../utils/mediaUpload';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../../../utils/notifications';
 import { MdSearch, MdFilterList, MdVisibility, MdVisibilityOff, MdImage } from 'react-icons/md';
 
@@ -96,46 +97,60 @@ const SongManagement = () => {
   };
 
   const handleUpload = async (e) => {
-    e.preventDefault();
-    if (!file || !title || !artist || !category) {
-      showWarningToast('Please fill all required fields');
-      return;
+  e.preventDefault();
+
+  if (!file || !title || !artist || !category) {
+    showWarningToast('Please fill all required fields');
+    return;
+  }
+
+  setUploading(true);
+
+  try {
+
+    // 🔥 Upload song to Supabase
+    const songUrl = await mediaUpload(file);
+
+    let thumbnailUrl = null;
+
+    // 🔥 Upload thumbnail to Supabase
+    if (thumbnail) {
+      thumbnailUrl = await mediaUpload(thumbnail);
     }
 
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('title', title);
-      formData.append('artist', artist);
-      formData.append('category', category);
-      if (description) formData.append('description', description);
-      if (thumbnail) formData.append('thumbnail', thumbnail);
+    // send URLs to backend
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('artist', artist);
+    formData.append('category', category);
 
-      await apiClient.post('/songs/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+    if (description) formData.append('description', description);
 
-      // Reset form
-      setTitle('');
-      setArtist('');
-      setCategory('');
-      setDescription('');
-      setFile(null);
-      setThumbnail(null);
-      setThumbnailPreview(null);
-      
-      await loadSongs();
-      showSuccessToast('Song uploaded successfully! 🎵');
-    } catch (err) {
-      showErrorToast(err.response?.data?.detail || 'Upload failed. Please try again.');
-      console.error(err);
-    } finally {
-      setUploading(false);
-    }
-  };
+    formData.append('audio_url', songUrl);
+    if (thumbnailUrl) formData.append('thumbnail_url', thumbnailUrl);
+
+    await apiClient.post('/songs/upload', formData);
+
+    // Reset form
+    setTitle('');
+    setArtist('');
+    setCategory('');
+    setDescription('');
+    setFile(null);
+    setThumbnail(null);
+    setThumbnailPreview(null);
+
+    await loadSongs();
+
+    showSuccessToast('Song uploaded successfully! 🎵');
+
+  } catch (err) {
+    showErrorToast('Upload failed. Please try again.');
+    console.error(err);
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleDelete = async (songId) => {
     if (!confirm('Are you sure you want to delete this song?')) return;
