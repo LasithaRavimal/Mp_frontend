@@ -1,127 +1,113 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MdClose, MdAssessment, MdCheckCircle } from 'react-icons/md';
+import { MdClose, MdAssessment, MdAudiotrack, MdInfo } from 'react-icons/md';
 import apiClient from '../../../api/apiClient';
 
 const PredictionModal = ({ isOpen, onClose }) => {
-  const navigate = useNavigate();
   const [questionnaireData, setQuestionnaireData] = useState(null);
+  const [musicPrediction, setMusicPrediction] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
-      fetchLatestQuestionnaire();
+      fetchData();
     }
   }, [isOpen]);
 
-  const fetchLatestQuestionnaire = async () => {
+  const fetchData = async () => {
     try {
-      const response = await apiClient.get('/questionnaire/latest');
-      setQuestionnaireData(response.data);
+      // 1. Get Questionnaire Results
+      const qRes = await apiClient.get('/questionnaire/latest');
+      setQuestionnaireData(qRes.data);
+
+      // 2. Get the latest session to see the behavior prediction
+      const sRes = await apiClient.get('/sessions'); 
+      if (sRes.data && sRes.data.length > 0) {
+        setMusicPrediction(sRes.data[0].prediction);
+      }
     } catch (error) {
-      console.error("Failed to fetch questionnaire", error);
+      console.error("Data fetch failed", error);
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
-  const getLevelColor = (level) => {
+  const getStatusColor = (level) => {
     const l = level?.toLowerCase();
-    if (l === 'high') return 'bg-red-500/20 text-red-400 border-red-500/30';
-    if (l === 'moderate') return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-    return 'bg-spotify-green/20 text-spotify-green border-spotify-green/30';
+    if (l === 'high') return 'text-red-500 border-red-500/30 bg-red-500/10';
+    if (l === 'moderate') return 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10';
+    return 'text-spotify-green border-spotify-green/30 bg-spotify-green/10';
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-spotify-dark-gray border border-spotify-gray rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-fade-in">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+      <div className="bg-spotify-dark-gray border border-spotify-gray rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden">
         
         {/* HEADER */}
-        <div className="flex justify-between items-center p-6 border-b border-spotify-gray bg-spotify-black/50">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-            <span className="text-spotify-green">M_Track</span> Session Complete
-          </h2>
-          <button onClick={onClose} className="text-text-gray hover:text-white transition-colors">
-            <MdClose className="text-3xl" />
+        <div className="p-6 border-b border-spotify-gray flex justify-between items-center bg-spotify-black/40">
+          <div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Analysis Results</h2>
+            <p className="text-text-gray text-sm">Cross-referencing behavior with screening</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-spotify-gray rounded-full text-white transition-colors">
+            <MdClose size={28} />
           </button>
         </div>
 
-        {/* CONTENT */}
-        <div className="p-8">
+        <div className="p-8 space-y-8">
           
-          {/* SUCCESS MESSAGE */}
-          <div className="flex items-center gap-4 bg-spotify-green/10 border border-spotify-green/30 p-4 rounded-xl mb-8">
-             <MdCheckCircle className="text-4xl text-spotify-green" />
-             <div>
-               <h3 className="text-white font-bold text-lg">Listening Data Logged</h3>
-               <p className="text-sm text-text-gray">Your music session behavior has been successfully saved to the database for research purposes.</p>
-             </div>
-          </div>
-
-          {/* CLINICAL QUESTIONNAIRE REMINDER */}
-          <div className="bg-spotify-black rounded-xl p-6 border border-spotify-gray">
-            <div className="flex items-center gap-3 mb-6 border-b border-spotify-gray pb-4">
-              <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                <MdAssessment className="text-2xl" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Your Daily Assessment</h3>
-                <p className="text-xs text-text-gray">Based on today's PHQ-9 & DASS-21</p>
-              </div>
+          {/* SECTION 1: MUSIC BEHAVIOR PREDICTION */}
+          <div className="relative p-6 rounded-2xl bg-gradient-to-br from-spotify-light-gray to-spotify-black border border-spotify-gray">
+            <div className="flex items-center gap-3 mb-4">
+              <MdAudiotrack className="text-spotify-green text-2xl" />
+              <h3 className="text-white font-bold uppercase tracking-widest text-sm">Behavioral Prediction</h3>
             </div>
 
-            {loading ? (
-              <div className="flex justify-center items-center h-32">
-                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : questionnaireData ? (
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-text-gray mb-2 uppercase tracking-wider font-semibold">Self-Reported Stress</p>
-                  <span className={`px-4 py-2 rounded-lg text-lg font-bold border block text-center ${getLevelColor(questionnaireData.stress_level)}`}>
-                    {questionnaireData.stress_level}
-                  </span>
+            {loading ? <div className="h-20 animate-pulse bg-spotify-gray rounded-lg" /> : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className={`p-4 rounded-xl border ${getStatusColor(musicPrediction?.depression_level)}`}>
+                  <p className="text-xs opacity-70 mb-1 uppercase">Depression Indicator</p>
+                  <p className="text-xl font-black">{musicPrediction?.depression_level || "Analyzing..."}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-text-gray mb-2 uppercase tracking-wider font-semibold">Self-Reported Depression</p>
-                  <span className={`px-4 py-2 rounded-lg text-lg font-bold border block text-center ${getLevelColor(questionnaireData.depression_level)}`}>
-                    {questionnaireData.depression_level}
-                  </span>
+                <div className={`p-4 rounded-xl border ${getStatusColor(musicPrediction?.stress_level)}`}>
+                  <p className="text-xs opacity-70 mb-1 uppercase">Stress Indicator</p>
+                  <p className="text-xl font-black">{musicPrediction?.stress_level || "Analyzing..."}</p>
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center text-center space-y-4">
-                <p className="text-text-gray text-sm">No clinical data found for today.</p>
-                <button 
-                  onClick={() => { onClose(); navigate('/questionnaire'); }}
-                  className="text-indigo-400 text-sm hover:underline"
-                >
-                  Take Assessment Now
-                </button>
+            )}
+            <div className="mt-4 flex items-start gap-2 text-[10px] text-text-gray italic">
+              <MdInfo size={14} className="shrink-0" />
+              <span>This prediction is based on your listening habits (time of day, song choice, and skip frequency).</span>
+            </div>
+          </div>
+
+          {/* SECTION 2: CLINICAL SCREENING RESULTS */}
+          <div className="p-6 rounded-2xl bg-spotify-black/40 border border-spotify-gray">
+            <div className="flex items-center gap-3 mb-4">
+              <MdAssessment className="text-indigo-400 text-2xl" />
+              <h3 className="text-white font-bold uppercase tracking-widest text-sm">Self-Reported Screening</h3>
+            </div>
+
+            {loading ? <div className="h-20 animate-pulse bg-spotify-gray rounded-lg" /> : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-spotify-light-gray/50 p-4 rounded-xl">
+                  <p className="text-xs text-text-gray mb-1 uppercase">PHQ-9 Result</p>
+                  <p className="text-lg font-bold text-white">{questionnaireData?.depression_level || "N/A"}</p>
+                </div>
+                <div className="bg-spotify-light-gray/50 p-4 rounded-xl">
+                  <p className="text-xs text-text-gray mb-1 uppercase">DASS-21 Result</p>
+                  <p className="text-lg font-bold text-white">{questionnaireData?.stress_level || "N/A"}</p>
+                </div>
               </div>
             )}
           </div>
+        </div>
 
-          {/* FOOTER ACTIONS */}
-          <div className="mt-8 pt-6 border-t border-spotify-gray flex justify-end gap-4">
-            <button
-              onClick={() => {
-                onClose();
-                navigate('/music-profile');
-              }}
-              className="px-6 py-3 rounded-full text-white font-bold bg-transparent border-2 border-spotify-gray hover:border-white transition-colors"
-            >
-              View Profile
-            </button>
-            <button
-              onClick={onClose}
-              className="px-8 py-3 rounded-full text-white font-bold bg-spotify-green hover:bg-spotify-green-hover transition-colors"
-            >
-              Close
-            </button>
-          </div>
+        <div className="p-6 bg-spotify-black/60 border-t border-spotify-gray flex justify-center">
+          <button onClick={onClose} className="bg-spotify-green text-black font-bold px-12 py-3 rounded-full hover:scale-105 transition-transform">
+            Done
+          </button>
         </div>
       </div>
     </div>
