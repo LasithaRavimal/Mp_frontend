@@ -126,7 +126,18 @@ export const PlayerProvider = ({ children }) => {
 
     const ended = async () => {
 
-      setIsPlaying(false);
+  if (audioRef.current && currentSong) {
+
+    const listenedDuration =
+      audioRef.current.currentTime - playStartTimeRef.current;
+
+    if (listenedDuration > 0) {
+      trackSongPause(currentSong.id, listenedDuration);
+    }
+
+  }
+
+  setIsPlaying(false);
 
       if (!songQueue.length) return;
 
@@ -206,15 +217,26 @@ export const PlayerProvider = ({ children }) => {
 
   const handleSkip = useCallback(async () => {
 
-    if (!songQueue.length || !currentSong) return;
+    // save duration of current song before skipping
+if (audioRef.current && currentSong) {
 
-    trackSkip(currentSong.id);
+  const listenedDuration =
+    audioRef.current.currentTime - playStartTimeRef.current;
 
-    let next = currentQueueIndex + 1;
-    if (next >= songQueue.length) next = 0;
+  if (listenedDuration > 0) {
+    trackSongPause(currentSong.id, listenedDuration);
+  }
 
-    setCurrentQueueIndex(next);
-    await onPlaySong(songQueue[next]);
+}
+
+trackSkip(currentSong.id);
+
+let next = currentQueueIndex + 1;
+if (next >= songQueue.length) next = 0;
+
+setCurrentQueueIndex(next);
+
+await onPlaySong(songQueue[next]);
 
   }, [songQueue, currentQueueIndex, currentSong, onPlaySong]);
 
