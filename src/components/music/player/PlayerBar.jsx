@@ -86,6 +86,10 @@ const PlayerBar = () => {
   return `${backend}${url}`;
 };
 
+console.log("PLAYER BAR RENDER");
+console.log("currentSong:", currentSong);
+console.log("activeSession:", activeSession);
+console.log("isAdmin:", isAdmin);
   
 
   return (

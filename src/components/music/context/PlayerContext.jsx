@@ -242,19 +242,39 @@ useEffect(() => {
     } else {
 
       if (!session.activeSession && !sessionIsAdmin) {
-        const sessionId = await startSession(currentSong.id);
-        if (!sessionId) return;
-      }
 
-      audioRef.current.play();
+  console.log("🚀 Starting new listening session");
 
-      if (session.activeSession && !sessionIsAdmin) {
-        trackSongPlay(
-          currentSong.id,
-          currentSong.category || 'calm',
-          audioRef.current.currentTime
-        );
-      }
+  const sessionId = await startSession(currentSong.id);
+
+  console.log("Session started:", sessionId);
+
+  if (!sessionId) {
+    console.error("Session start failed");
+    return;
+  }
+
+  // track first play immediately
+  trackSongPlay(
+    currentSong.id,
+    currentSong.category || "calm",
+    audioRef.current?.currentTime || 0
+  );
+
+} else if (!sessionIsAdmin) {
+
+  console.log("Tracking play in existing session");
+
+  trackSongPlay(
+    currentSong.id,
+    currentSong.category || "calm",
+    audioRef.current?.currentTime || 0
+  );
+
+}
+
+audioRef.current.play();
+setIsPlaying(true);
 
       setIsPlaying(true);
 
@@ -309,6 +329,30 @@ useEffect(() => {
   };
 
   /* ---------------- END SESSION ---------------- */
+
+  console.log("===== SESSION END REQUEST =====");
+
+console.log("Active Session ID:", session.activeSession);
+
+console.log("Songs Played:", session.songsPlayed);
+
+console.log("Song Durations Map:", session.songDurations);
+
+console.log(
+  "Total Listening Seconds:",
+  Array.from(session.songDurations.values()).reduce(
+    (sum, duration) => sum + duration,
+    0
+  )
+);
+
+console.log("Skip Count:", session.skipCount);
+
+console.log("Repeat Count:", session.repeatCount);
+
+console.log("Volume History:", session.volumeHistory);
+
+console.log("Session Events:", session.sessionEvents);
 
   const handleEndSession = useCallback(async () => {
 
@@ -409,6 +453,14 @@ You need ${remainingMinutes} more minute(s).`,
     setPrediction
 
   };
+
+  useEffect(() => {
+
+  console.log("PLAYER SESSION STATE");
+  console.log("Active session:", session.activeSession);
+  console.log("Is admin:", sessionIsAdmin);
+
+}, [session.activeSession]);
 
   return (
 
