@@ -75,6 +75,22 @@ export const PlayerProvider = ({ children }) => {
 
     if (!song) return;
 
+    // SAVE previous song listening duration
+if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
+
+  const listenedDuration =
+    audioRef.current.currentTime - playStartTimeRef.current;
+
+  if (listenedDuration > 0) {
+
+    console.log("Saving previous song duration:", listenedDuration);
+
+    trackSongPause(currentSong.id, listenedDuration);
+
+  }
+
+}
+
     const isDifferent = currentSong && currentSong.id !== song.id;
 
     if (isDifferent && audioRef.current) {
