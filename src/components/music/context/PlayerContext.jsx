@@ -109,6 +109,7 @@ export const PlayerProvider = ({ children }) => {
     });
 
     setCurrentSong(song);
+    setIsPlaying(true);
 
   }, [currentSong, buildQueue]);
 
@@ -147,13 +148,11 @@ export const PlayerProvider = ({ children }) => {
 
   /* ---------------- LOAD AUDIO ---------------- */
 
- useEffect(() => {
+useEffect(() => {
 
   if (currentSong && audioRef.current) {
 
-    const audioUrl = currentSong.audio_url.startsWith("http")
-      ? currentSong.audio_url
-      : `${import.meta.env.VITE_BACKEND_URL}${currentSong.audio_url}`;
+    const audioUrl = currentSong.audio_url;
 
     audioRef.current.src = audioUrl;
 

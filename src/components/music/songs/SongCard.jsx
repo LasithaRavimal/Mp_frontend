@@ -6,7 +6,7 @@ import { usePlayer } from '../../music/context/PlayerContext';
 
 const SongCard = ({ song, onPlay, showAddButton = true }) => {
 
-  const { currentSong, isPlaying, handlePlayPause } = usePlayer();
+  const { currentSong, isPlaying, handlePlayPause, onPlaySong } = usePlayer();
 
   const [isHovered, setIsHovered] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -72,19 +72,19 @@ const SongCard = ({ song, onPlay, showAddButton = true }) => {
 
   const handlePlay = (e) => {
 
-    e?.stopPropagation();
+  e?.stopPropagation();
 
-    if (isCurrentlyPlaying && handlePlayPause) {
+  if (isCurrentlyPlaying) {
 
-      handlePlayPause();
+    handlePlayPause();
 
-    } else if (onPlay) {
+  } else {
 
-      onPlay(song);
+    onPlaySong(song);
 
-    }
+  }
 
-  };
+};
 
   const handleAddClick = (e) => {
 
