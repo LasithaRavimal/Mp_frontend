@@ -77,10 +77,20 @@ const SongManagement = () => {
   }, [songs, searchQuery, selectedCategory, visibilityFilter]);
 
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
+
+  const selected = e.target.files?.[0];
+
+  if (!selected) return;
+
+  const allowed = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-m4a"];
+
+  if (!allowed.includes(selected.type)) {
+    showErrorToast("Only MP3 / WAV / M4A allowed");
+    return;
+  }
+
+  setFile(selected);
+};
 
   const handleThumbnailChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -96,11 +106,11 @@ const SongManagement = () => {
     }
   };
 
-  const handleUpload = async (e) => {
+const handleUpload = async (e) => {
   e.preventDefault();
 
   if (!file || !title || !artist || !category) {
-    showWarningToast('Please fill all required fields');
+    showWarningToast("Please fill all required fields");
     return;
   }
 
@@ -108,45 +118,44 @@ const SongManagement = () => {
 
   try {
 
-    // 🔥 Upload song to Supabase
-    const songUrl = await mediaUpload(file);
+    const songUrl = await mediaUpload(file, "songs");
 
     let thumbnailUrl = null;
 
-    // 🔥 Upload thumbnail to Supabase
     if (thumbnail) {
-      thumbnailUrl = await mediaUpload(thumbnail);
+      thumbnailUrl = await mediaUpload(thumbnail, "images");
     }
 
-    // send URLs to backend
     const formData = new FormData();
-    formData.append('title', title);
-    formData.append('artist', artist);
-    formData.append('category', category);
 
-    if (description) formData.append('description', description);
+    formData.append("title", title);
+    formData.append("artist", artist);
+    formData.append("category", category);
+    formData.append("description", description || "");
 
-    formData.append('audio_url', songUrl);
-    if (thumbnailUrl) formData.append('thumbnail_url', thumbnailUrl);
+    formData.append("audio_url", songUrl);
 
-    await apiClient.post('/songs/upload', formData);
+    if (thumbnailUrl) {
+      formData.append("thumbnail_url", thumbnailUrl);
+    }
 
-    // Reset form
-    setTitle('');
-    setArtist('');
-    setCategory('');
-    setDescription('');
+    await apiClient.post("/songs/upload", formData);
+
+    setTitle("");
+    setArtist("");
+    setCategory("");
+    setDescription("");
     setFile(null);
     setThumbnail(null);
     setThumbnailPreview(null);
 
     await loadSongs();
 
-    showSuccessToast('Song uploaded successfully! 🎵');
+    showSuccessToast("Song uploaded successfully 🎵");
 
   } catch (err) {
-    showErrorToast('Upload failed. Please try again.');
-    console.error(err);
+    console.error("UPLOAD ERROR:", err);
+    showErrorToast(err.response?.data?.detail || "Upload failed");
   } finally {
     setUploading(false);
   }
@@ -185,20 +194,8 @@ const SongManagement = () => {
     setEditingSong(null);
   };
 
-  const getThumbnailUrl = (thumbnailUrl) => {
-  if (!thumbnailUrl) return null;
-
-  // if already full URL
-  if (thumbnailUrl.startsWith("http")) {
-    return thumbnailUrl;
-  }
-
-  // 🔥 use backend URL (NOT API URL)
-  const backendUrl =
-    import.meta.env.VITE_BACKEND_URL ||
-    "https://music-player-col8.onrender.com";
-
-  return `${backendUrl}${thumbnailUrl}`;
+  const getThumbnailUrl = (url) => {
+  return url || null;
 };
 
 
