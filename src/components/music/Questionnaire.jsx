@@ -63,25 +63,25 @@ export default function Questionnaire() {
     stressQuestions.forEach((q, i) => dass21_answers.push(answers[`stress${i}`] || 0));
 
     try {
-      // 1. Send data to backend (Backend calculates the score and saves it)
+      // 1. Send data to backend
       await apiClient.post("/questionnaire/submit", {
         phq9_answers,
         dass21_answers
       });
 
-      // 2. Save today's date in local storage so they don't have to take it again today
+      // 2. Save today's date in local storage
       const today = new Date().toISOString().split('T')[0];
       localStorage.setItem("lastAssessmentDate", today);
 
       showSuccessToast("Assessment saved! Redirecting to player...");
 
-      // 3. Immediately redirect to the player (Results remain hidden!)
-      navigate("/library");
+      // 3. Immediately redirect to the music player homepage
+      navigate("/musichome");
 
     } catch (error) {
       console.error("Failed to submit questionnaire:", error);
       showErrorToast("Failed to save to server, but redirecting to player.");
-      navigate("/library");
+      navigate("/musichome");
     } finally {
       setIsSubmitting(false);
     }
@@ -89,33 +89,33 @@ export default function Questionnaire() {
 
   /* TABLE RENDER HELPER */
   const renderTable = (title, questions, prefix) => (
-    <div className="mb-12">
-      <h2 className="text-xl font-bold mb-4 text-white border-l-4 border-spotify-green pl-3">
+    <div className="mb-10">
+      <h2 className="text-xl font-bold mb-4 text-slate-800 border-l-4 border-indigo-600 pl-3">
         {title}
       </h2>
-      <div className="overflow-x-auto shadow-xl rounded-lg border border-spotify-gray bg-spotify-dark-gray">
-        <table className="w-full text-left border-collapse min-w-[800px]">
+      <div className="overflow-x-auto shadow-sm rounded-lg border border-slate-200">
+        <table className="w-full text-left border-collapse bg-white min-w-[800px]">
           <thead>
-            <tr className="bg-spotify-light-gray text-white border-b border-spotify-gray">
+            <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
               <th className="p-4 font-semibold w-2/5">Question / ප්‍රශ්නය</th>
               {options.map((opt) => (
                 <th key={opt.value} className="p-4 text-center font-semibold text-sm w-[15%]">
                   {opt.en}
-                  <div className="text-xs text-text-gray font-normal mt-1">{opt.si}</div>
+                  <div className="text-xs text-slate-500 font-normal mt-1">{opt.si}</div>
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-spotify-gray/50">
-            {questions.map((q, i) => (
-              <tr key={i} className="hover:bg-spotify-light-gray/30 transition-colors">
-                <td className="p-4 text-white text-sm">
-                  <span className="font-medium">{i + 1}. {q.en}</span>
-                  <div className="text-text-gray mt-1">{q.si}</div>
-                </td>
-                {options.map((opt) => {
-                  const inputName = `${prefix}${i}`;
-                  return (
+          <tbody className="divide-y divide-slate-100">
+            {questions.map((q, i) => {
+              const inputName = `${prefix}${i}`;
+              return (
+                <tr key={i} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4 text-slate-800 text-sm">
+                    <span className="font-medium">{i + 1}. {q.en}</span>
+                    <div className="text-slate-500 mt-1">{q.si}</div>
+                  </td>
+                  {options.map((opt) => (
                     <td
                       key={opt.value}
                       className="p-4 text-center cursor-pointer"
@@ -127,13 +127,13 @@ export default function Questionnaire() {
                         value={opt.value}
                         checked={answers[inputName] === opt.value}
                         onChange={() => handleAnswer(inputName, opt.value)}
-                        className="w-5 h-5 accent-spotify-green cursor-pointer"
+                        className="w-5 h-5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -141,12 +141,12 @@ export default function Questionnaire() {
   );
 
   return (
-    <div className="min-h-screen bg-spotify-black py-10 px-4 sm:px-8 font-sans">
+    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
         <div className="mb-10 text-center">
-          <h1 className="text-4xl font-extrabold text-white tracking-tight">Mental Health Assessment</h1>
-          <p className="text-spotify-green mt-2 text-lg font-medium">මානසික සෞඛ්‍ය ප්‍රශ්නාවලිය</p>
-          <p className="text-sm text-text-gray mt-4 max-w-2xl mx-auto">
+          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Mental Health Assessment</h1>
+          <p className="text-slate-500 mt-2 text-lg">මානසික සෞඛ්‍ය ප්‍රශ්නාවලිය</p>
+          <p className="text-sm text-slate-400 mt-2 max-w-2xl mx-auto">
             Please select the best option for each question. Your results will be calculated and shown after your listening session.
           </p>
         </div>
@@ -158,7 +158,7 @@ export default function Questionnaire() {
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="bg-spotify-green hover:bg-spotify-green-hover transition-all transform hover:scale-105 text-white px-10 py-4 rounded-full font-bold text-lg shadow-[0_0_15px_rgba(29,185,84,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-10 py-4 rounded-lg font-bold text-lg shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Saving Answers..." : "Submit & Go To Player"}
           </button>
