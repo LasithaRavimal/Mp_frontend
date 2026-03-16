@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { MdPerson, MdSettings, MdLogout } from "react-icons/md";
+import heroBg from "../../immges/hero-bg3.jpg";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -41,9 +42,8 @@ const LandingPage = () => {
   return (
     <div 
       className="relative flex flex-col items-center justify-center min-h-screen text-center bg-spotify-black bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: "url('/hero-bg.jpg')" }}
+      style={{ backgroundImage: `url(${heroBg})` }}
     >
-      {/* Background Overlay for readability */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px] z-0"></div>
 
       {/* =========================
@@ -60,7 +60,6 @@ const LandingPage = () => {
             </div>
           </button>
 
-          {/* PROFILE DROPDOWN */}
           {showProfileMenu && (
             <div className="mt-2 w-48 bg-spotify-light-gray/95 backdrop-blur-lg border border-spotify-gray rounded-lg shadow-2xl py-2 absolute right-0 overflow-hidden">
               <button
@@ -113,19 +112,13 @@ const LandingPage = () => {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-6 pt-6">
+        {/* SINGLE BUTTON FOR ASSESSMENT */}
+        <div className="pt-6">
           <button
             onClick={() => navigate("/questionnaire")}
-            className="px-8 py-4 bg-spotify-green hover:bg-spotify-green-hover text-white rounded-full font-bold text-lg shadow-[0_0_20px_rgba(29,185,84,0.3)] hover:shadow-[0_0_30px_rgba(29,185,84,0.5)] transition-all transform hover:scale-105"
+            className="px-10 py-4 bg-spotify-green hover:bg-spotify-green-hover text-white rounded-full font-bold text-xl shadow-[0_0_20px_rgba(29,185,84,0.3)] hover:shadow-[0_0_30px_rgba(29,185,84,0.5)] transition-all transform hover:scale-105"
           >
             Start Assessment
-          </button>
-          
-          <button
-            onClick={() => navigate("/library")} 
-            className="px-8 py-4 bg-black/40 backdrop-blur-sm border-2 border-white/50 hover:border-spotify-green hover:text-spotify-green text-white rounded-full font-bold text-lg transition-all transform hover:scale-105"
-          >
-            Open Player
           </button>
         </div>
 
