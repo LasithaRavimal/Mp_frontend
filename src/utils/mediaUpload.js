@@ -54,8 +54,12 @@ export default async function mediaUpload(file, bucket) {
     */
 
     const timestamp = Date.now();
-    const safeName = file.name.replace(/\s+/g, "_");
-    const fileName = `${timestamp}_${safeName}`;
+
+const safeName = file.name
+  .replace(/\s+/g, "_")
+  .replace(/[^a-zA-Z0-9._-]/g, "");
+
+const fileName = `${timestamp}_${safeName}`;
 
     /*
     ----------------------------------------

@@ -76,8 +76,7 @@ const SongManagement = () => {
     });
   }, [songs, searchQuery, selectedCategory, visibilityFilter]);
 
-  const handleFileChange = (e) => {
-
+ const handleFileChange = (e) => {
   const selected = e.target.files?.[0];
 
   if (!selected) return;
@@ -109,10 +108,15 @@ const SongManagement = () => {
 const handleUpload = async (e) => {
   e.preventDefault();
 
-  if (!file || !title || !artist || !category) {
-    showWarningToast("Please fill all required fields");
-    return;
-  }
+  if (!file) {
+  showWarningToast("Please select audio file");
+  return;
+}
+
+if (!title || !artist || !category) {
+  showWarningToast("Please fill title, artist and category");
+  return;
+}
 
   setUploading(true);
 
@@ -280,7 +284,7 @@ const handleUpload = async (e) => {
                   </label>
                   <input
                     type="file"
-                    accept="audio/*"
+                    accept=".mp3,.wav,.m4a"
                     onChange={handleFileChange}
                     required
                     className="input-light w-full px-4 py-2 rounded-lg"
