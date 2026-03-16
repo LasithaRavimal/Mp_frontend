@@ -117,7 +117,7 @@ const handleUpload = async (e) => {
   setUploading(true);
 
   try {
-
+    // Upload audio to Supabase
     const songUrl = await mediaUpload(file, "songs");
 
     let thumbnailUrl = null;
@@ -126,20 +126,24 @@ const handleUpload = async (e) => {
       thumbnailUrl = await mediaUpload(thumbnail, "images");
     }
 
+    // Create FormData (VERY IMPORTANT)
     const formData = new FormData();
 
     formData.append("title", title);
     formData.append("artist", artist);
     formData.append("category", category);
     formData.append("description", description || "");
-
     formData.append("audio_url", songUrl);
 
     if (thumbnailUrl) {
       formData.append("thumbnail_url", thumbnailUrl);
     }
 
-    await apiClient.post("/songs/upload", formData);
+    await apiClient.post("/songs/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
     setTitle("");
     setArtist("");
@@ -154,13 +158,12 @@ const handleUpload = async (e) => {
     showSuccessToast("Song uploaded successfully 🎵");
 
   } catch (err) {
-    console.error("UPLOAD ERROR:", err);
-    showErrorToast(err.response?.data?.detail || "Upload failed");
+    console.error("UPLOAD ERROR:", err.response?.data || err);
+    showErrorToast("Upload failed");
   } finally {
     setUploading(false);
   }
 };
-
   const handleDelete = async (songId) => {
     if (!confirm('Are you sure you want to delete this song?')) return;
 
