@@ -19,10 +19,15 @@ const PredictionModal = ({ isOpen, onClose }) => {
       const qRes = await apiClient.get('/questionnaire/latest');
       setQuestionnaireData(qRes.data);
 
-      // 2. Get the latest session to see the behavior prediction
+      // 2. Get the specific session data
+      // If you pass the session_id as a prop to this modal, use that.
+      // Otherwise, the latest session from the list is fine:
       const sRes = await apiClient.get('/sessions'); 
+      
       if (sRes.data && sRes.data.length > 0) {
-        setMusicPrediction(sRes.data[0].prediction);
+        // Find the most recent session that has a 'prediction' object
+        const latestWithPrediction = sRes.data.find(s => s.prediction) || sRes.data[0];
+        setMusicPrediction(latestWithPrediction.prediction);
       }
     } catch (error) {
       console.error("Data fetch failed", error);
