@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { MdPerson, MdSettings, MdLogout } from "react-icons/md";
-import heroBg from "../../immges/hero-bg3.jpg";
+import heroBg from "../../immges/hero-bg.jpg";
 
 const LandingPage = () => {
   const navigate = useNavigate();
