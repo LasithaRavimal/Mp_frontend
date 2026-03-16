@@ -14,6 +14,27 @@ const LoginPage = () => {
   const { login, register, googleLogin } = useAuth();
   const navigate = useNavigate();
 
+  // ==========================================
+  // SMART ROUTING LOGIC
+  // ==========================================
+  const handleSuccessfulAuth = (role) => {
+    if (role === 'admin') {
+      navigate('/admin');
+    } else {
+      // Check if the user has already done the assessment today
+      const lastAssessment = localStorage.getItem('lastAssessmentDate');
+      const today = new Date().toISOString().split('T')[0];
+
+      if (lastAssessment === today) {
+        // Already did the test -> Go straight to Music Player!
+        navigate('/library');
+      } else {
+        // Needs to do the test -> Go to Landing Page
+        navigate('/landing');
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -25,12 +46,7 @@ const LoginPage = () => {
         : await register(email, password);
 
       if (result.success) {
-        // Redirect based on role
-        if (result.user.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/landing');
-        }
+        handleSuccessfulAuth(result.user.role);
       } else {
         setError(result.error);
       }
@@ -48,11 +64,7 @@ const LoginPage = () => {
     try {
       const result = await googleLogin(token);
       if (result.success) {
-        if (result.user.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/landing');
-        }
+        handleSuccessfulAuth(result.user.role);
       } else {
         setError(result.error);
       }

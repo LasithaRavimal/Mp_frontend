@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import apiClient from "../../api/apiClient";
+import { showSuccessToast, showErrorToast } from "../../utils/notifications"; // Assuming you have this!
 
 /* OPTIONS */
 const options = [
@@ -38,6 +40,7 @@ export default function Questionnaire() {
 
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   /* HANDLE ANSWER */
   const handleAnswer = (key, value) => {
@@ -47,40 +50,45 @@ export default function Questionnaire() {
     });
   };
 
-  /* CALCULATE SCORE */
-  const calculateScore = () => {
+  /* SUBMIT AND CALCULATE SCORE */
+  const handleSubmit = async () => {
     const totalQuestions = phqQuestions.length + stressQuestions.length;
 
     if (Object.keys(answers).length < totalQuestions) {
-      alert("Please answer all questions before submitting. / කරුණාකර සියලුම ප්‍රශ්න වලට පිළිතුරු සපයන්න.");
+      showErrorToast("Please answer all questions before submitting. / කරුණාකර සියලුම ප්‍රශ්න වලට පිළිතුරු සපයන්න.");
       return;
     }
 
+    setIsSubmitting(true);
+
     let phqScore = 0;
     let stressScore = 0;
+    
+    // Format arrays for the backend
+    const phq9_answers = [];
+    const dass21_answers = [];
 
     phqQuestions.forEach((q, i) => {
-      phqScore += answers[`phq${i}`] || 0;
+      const val = answers[`phq${i}`] || 0;
+      phqScore += val;
+      phq9_answers.push(val);
     });
 
     stressQuestions.forEach((q, i) => {
-      stressScore += answers[`stress${i}`] || 0;
+      const val = answers[`stress${i}`] || 0;
+      stressScore += val;
+      dass21_answers.push(val);
     });
 
     let depressionLevel = "Low";
-    if (phqScore >= 15) {
-      depressionLevel = "High";
-    } else if (phqScore >= 8) {
-      depressionLevel = "Moderate";
-    }
+    if (phqScore >= 15) depressionLevel = "High";
+    else if (phqScore >= 8) depressionLevel = "Moderate";
 
     let stressLevel = "Low";
-    if (stressScore >= 15) {
-      stressLevel = "High";
-    } else if (stressScore >= 8) {
-      stressLevel = "Moderate";
-    }
+    if (stressScore >= 15) stressLevel = "High";
+    else if (stressScore >= 8) stressLevel = "Moderate";
 
+    // Show results instantly on UI
     setResult({
       phqScore,
       stressScore,
@@ -88,40 +96,61 @@ export default function Questionnaire() {
       stressLevel
     });
 
-    /* mark questionnaire completed */
-    localStorage.setItem("questionnaireCompleted", "true");
+    try {
+      // 1. Send data to backend
+      await apiClient.post("/questionnaire/submit", {
+        phq9_answers,
+        dass21_answers
+      });
 
-    /* redirect */
-    setTimeout(() => {
-      navigate("/musichome");
-    }, 3000);
+      // 2. Save today's date in local storage for the "Once a day" rule
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem("lastAssessmentDate", today);
+
+      showSuccessToast("Assessment complete! Redirecting to player...");
+
+      // 3. Redirect to Music Library
+      setTimeout(() => {
+        navigate("/library");
+      }, 3000);
+
+    } catch (error) {
+      console.error("Failed to submit questionnaire:", error);
+      showErrorToast("Failed to save to server, but redirecting to player.");
+      
+      setTimeout(() => {
+        navigate("/library");
+      }, 3000);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   /* TABLE RENDER HELPER */
   const renderTable = (title, questions, prefix) => (
-    <div className="mb-10">
-      <h2 className="text-xl font-bold mb-4 text-slate-800 border-l-4 border-indigo-600 pl-3">
+    <div className="mb-12">
+      <h2 className="text-xl font-bold mb-4 text-white border-l-4 border-spotify-green pl-3">
         {title}
       </h2>
-      <div className="overflow-x-auto shadow-sm rounded-lg border border-slate-200">
-        <table className="w-full text-left border-collapse bg-white min-w-[800px]">
+      <div className="overflow-x-auto shadow-xl rounded-lg border border-spotify-gray bg-spotify-dark-gray">
+        <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
-            <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
+            <tr className="bg-spotify-light-gray text-white border-b border-spotify-gray">
               <th className="p-4 font-semibold w-2/5">Question / ප්‍රශ්නය</th>
               {options.map((opt) => (
                 <th key={opt.value} className="p-4 text-center font-semibold text-sm w-[15%]">
                   {opt.en}
-                  <div className="text-xs text-slate-500 font-normal mt-1">{opt.si}</div>
+                  <div className="text-xs text-text-gray font-normal mt-1">{opt.si}</div>
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-spotify-gray/50">
             {questions.map((q, i) => (
-              <tr key={i} className="hover:bg-slate-50 transition-colors">
-                <td className="p-4 text-slate-800 text-sm">
+              <tr key={i} className="hover:bg-spotify-light-gray/30 transition-colors">
+                <td className="p-4 text-white text-sm">
                   <span className="font-medium">{i + 1}. {q.en}</span>
-                  <div className="text-slate-500 mt-1">{q.si}</div>
+                  <div className="text-text-gray mt-1">{q.si}</div>
                 </td>
                 {options.map((opt) => {
                   const inputName = `${prefix}${i}`;
@@ -139,7 +168,7 @@ export default function Questionnaire() {
                         value={opt.value}
                         checked={isChecked}
                         onChange={() => handleAnswer(inputName, opt.value)}
-                        className="w-5 h-5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        className="w-5 h-5 accent-spotify-green cursor-pointer"
                       />
                     </td>
                   );
@@ -153,18 +182,18 @@ export default function Questionnaire() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-8">
+    <div className="min-h-screen bg-spotify-black py-10 px-4 sm:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
         
         {/* HEADER */}
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-            Mental Health Questionnaire
+          <h1 className="text-4xl font-extrabold text-white tracking-tight">
+            Mental Health Assessment
           </h1>
-          <p className="text-slate-500 mt-2 text-lg">
+          <p className="text-spotify-green mt-2 text-lg font-medium">
             මානසික සෞඛ්‍ය ප්‍රශ්නාවලිය
           </p>
-          <p className="text-sm text-slate-400 mt-2 max-w-2xl mx-auto">
+          <p className="text-sm text-text-gray mt-4 max-w-2xl mx-auto">
             Over the last 2 weeks, how often have you been bothered by any of the following problems? Please select the best option for each question.
           </p>
         </div>
@@ -174,49 +203,58 @@ export default function Questionnaire() {
         {renderTable("DASS-21 Stress Assessment", stressQuestions, "stress")}
 
         {/* SUBMIT BUTTON */}
-        <div className="flex justify-center mt-8">
-          <button
-            onClick={calculateScore}
-            className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-8 py-3 rounded-lg font-bold text-lg shadow-md hover:shadow-lg"
-          >
-            Submit Questionnaire
-          </button>
-        </div>
+        {!result && (
+          <div className="flex justify-center mt-8 pb-12">
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="bg-spotify-green hover:bg-spotify-green-hover transition-all transform hover:scale-105 text-white px-10 py-4 rounded-full font-bold text-lg shadow-[0_0_15px_rgba(29,185,84,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Submitting..." : "Submit Assessment"}
+            </button>
+          </div>
+        )}
 
         {/* RESULT */}
         {result && (
-          <div className="mt-10 bg-white p-8 rounded-xl border border-indigo-100 shadow-lg max-w-2xl mx-auto text-center">
-            <h2 className="text-2xl font-bold mb-6 text-slate-800 border-b pb-4">
+          <div className="mt-10 bg-spotify-dark-gray p-8 rounded-2xl border border-spotify-gray shadow-2xl max-w-2xl mx-auto text-center mb-12">
+            <h2 className="text-2xl font-bold mb-6 text-white border-b border-spotify-gray pb-4">
               Results / ප්‍රතිඵල
             </h2>
             
             <div className="grid grid-cols-2 gap-6">
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <h3 className="text-sm text-slate-500 uppercase tracking-wider font-semibold">Depression (PHQ-9)</h3>
-                <p className="text-3xl font-bold text-slate-800 mt-2">{result.phqScore}</p>
-                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold 
-                  ${result.depressionLevel === 'High' ? 'bg-red-100 text-red-700' : 
-                    result.depressionLevel === 'Moderate' ? 'bg-yellow-100 text-yellow-700' : 
-                    'bg-green-100 text-green-700'}`}>
+              {/* Depression Result */}
+              <div className="bg-spotify-black p-6 rounded-xl border border-spotify-light-gray">
+                <h3 className="text-xs text-text-gray uppercase tracking-widest font-semibold mb-2">Depression (PHQ-9)</h3>
+                <p className="text-4xl font-bold text-white mb-3">{result.phqScore}</p>
+                <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-bold 
+                  ${result.depressionLevel === 'High' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 
+                    result.depressionLevel === 'Moderate' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 
+                    'bg-spotify-green/20 text-spotify-green border border-spotify-green/30'}`}>
                   {result.depressionLevel}
                 </span>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <h3 className="text-sm text-slate-500 uppercase tracking-wider font-semibold">Stress (DASS-21)</h3>
-                <p className="text-3xl font-bold text-slate-800 mt-2">{result.stressScore}</p>
-                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold 
-                  ${result.stressLevel === 'High' ? 'bg-red-100 text-red-700' : 
-                    result.stressLevel === 'Moderate' ? 'bg-yellow-100 text-yellow-700' : 
-                    'bg-green-100 text-green-700'}`}>
+              {/* Stress Result */}
+              <div className="bg-spotify-black p-6 rounded-xl border border-spotify-light-gray">
+                <h3 className="text-xs text-text-gray uppercase tracking-widest font-semibold mb-2">Stress (DASS-21)</h3>
+                <p className="text-4xl font-bold text-white mb-3">{result.stressScore}</p>
+                <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-bold 
+                  ${result.stressLevel === 'High' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 
+                    result.stressLevel === 'Moderate' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 
+                    'bg-spotify-green/20 text-spotify-green border border-spotify-green/30'}`}>
                   {result.stressLevel}
                 </span>
               </div>
             </div>
             
-            <p className="mt-6 text-indigo-600 font-medium animate-pulse">
-              Redirecting to Music Home...
-            </p>
+            <div className="mt-8 flex items-center justify-center gap-3 text-spotify-green font-medium animate-pulse">
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Redirecting to Music Player...
+            </div>
           </div>
         )}
       </div>

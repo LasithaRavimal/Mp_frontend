@@ -14,7 +14,6 @@ export const usePlayer = () => {
 };
 
 export const PlayerProvider = ({ children }) => {
-
   const audioRef = useRef(null);
   const playStartTimeRef = useRef(null);
 
@@ -36,6 +35,7 @@ export const PlayerProvider = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
+  const [showExpanded, setShowExpanded] = useState(false);
 
   const [songQueue, setSongQueue] = useState([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
@@ -47,96 +47,153 @@ export const PlayerProvider = ({ children }) => {
   /* ---------------- LOAD SONG QUEUE ---------------- */
 
   const buildQueue = useCallback(async (song) => {
-
     try {
-
       const res = await apiClient.get("/songs");
       const songs = res.data || [];
-
       const index = songs.findIndex(s => s.id === song.id);
 
       setSongQueue(songs);
       setCurrentQueueIndex(index >= 0 ? index : 0);
-
     } catch (err) {
-
       console.error("Queue load failed", err);
       setSongQueue([song]);
       setCurrentQueueIndex(0);
-
     }
-
   }, []);
 
-  /* ---------------- LOAD SONG FROM CARD ---------------- */
+  /* ---------------- HELPER: SAVE EXACT LISTENING TIME ---------------- */
+  // Flushes the duration of the current audio chunk to the session context
+  const flushListeningTime = useCallback(() => {
+    if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
+      const listenedDuration = audioRef.current.currentTime - playStartTimeRef.current;
+      
+      if (listenedDuration > 0) {
+        console.log(`[Session] Saving duration: ${listenedDuration.toFixed(2)}s for ${currentSong.title}`);
+        trackSongPause(currentSong.id, listenedDuration);
+      }
+      playStartTimeRef.current = null; // Reset until played again
+    }
+  }, [currentSong, trackSongPause]);
+
+  /* ---------------- PLAY / PAUSE ---------------- */
+
+  const handlePlayPause = useCallback(async () => {
+    if (!currentSong) return;
+
+    if (isPlaying) {
+      // 1. PAUSING
+      flushListeningTime();
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      // 2. PLAYING
+      if (!session.activeSession && !sessionIsAdmin) {
+        await startSession(currentSong.id);
+      }
+
+      // If at end of song, restart it
+      if (audioRef.current.currentTime >= duration) {
+        audioRef.current.currentTime = 0;
+      }
+
+      audioRef.current.play().catch(e => console.error("Play error:", e));
+      playStartTimeRef.current = audioRef.current.currentTime;
+      
+      if (!sessionIsAdmin) {
+        trackSongPlay(currentSong.id, currentSong.category || "calm", audioRef.current.currentTime);
+      }
+      setIsPlaying(true);
+    }
+  }, [currentSong, isPlaying, duration, session, sessionIsAdmin, flushListeningTime, startSession, trackSongPlay]);
+
+  /* ---------------- PLAY NEW SONG ---------------- */
 
   const onPlaySong = useCallback(async (song) => {
-
     if (!song) return;
 
-    // SAVE previous song duration before switching
-    if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
-
-      const now = audioRef.current.currentTime;
-      const listenedDuration = now - playStartTimeRef.current;
-
-      if (listenedDuration > 0) {
-
-        console.log("Saving previous song duration:", listenedDuration);
-        trackSongPause(currentSong.id, listenedDuration);
-
-      }
-
+    // Toggle play/pause if clicking the EXACT same song
+    if (currentSong && currentSong.id === song.id) {
+      handlePlayPause();
+      return;
     }
 
-    const isDifferent = currentSong && currentSong.id !== song.id;
-
-    if (isDifferent && audioRef.current) {
-
-      audioRef.current.currentTime = 0;
-      setCurrentTime(0);
-
-    }
+    // Save listening duration of the PREVIOUS song before switching
+    flushListeningTime();
 
     setSongQueue(prev => {
-
       if (!prev.length || !prev.find(s => s.id === song.id)) {
-
         buildQueue(song);
         return prev;
-
       }
-
       const index = prev.findIndex(s => s.id === song.id);
-
       if (index >= 0) setCurrentQueueIndex(index);
-
       return prev;
-
     });
 
     setCurrentSong(song);
 
-    // load song but DO NOT autoplay
-    setIsPlaying(false);
+    // Make sure a session is running
+    if (!session.activeSession && !sessionIsAdmin) {
+      await startSession(song.id);
+    }
 
-  }, [currentSong, buildQueue]);
+    setIsPlaying(true);
+    playStartTimeRef.current = 0; // Starts from 0 since it's a new song
 
-  /* ---------------- LOAD AUDIO ---------------- */
+    if (!sessionIsAdmin) {
+      trackSongPlay(song.id, song.category || "calm", 0);
+    }
+  }, [currentSong, flushListeningTime, handlePlayPause, buildQueue, session, sessionIsAdmin, startSession, trackSongPlay]);
+
+  /* ---------------- SKIP ---------------- */
+
+  const handleSkip = useCallback(async (direction = 'next') => {
+    if (!currentSong || !songQueue.length) return;
+
+    flushListeningTime(); // Save time before skipping
+    trackSkip(currentSong.id);
+
+    let nextIndex;
+    if (direction === 'previous') {
+      nextIndex = currentQueueIndex - 1;
+      if (nextIndex < 0) nextIndex = songQueue.length - 1;
+    } else {
+      if (shuffleMode) {
+        nextIndex = Math.floor(Math.random() * songQueue.length);
+      } else {
+        nextIndex = currentQueueIndex + 1;
+        if (nextIndex >= songQueue.length) nextIndex = 0;
+      }
+    }
+
+    setCurrentQueueIndex(nextIndex);
+    await onPlaySong(songQueue[nextIndex]);
+  }, [currentSong, songQueue, currentQueueIndex, shuffleMode, flushListeningTime, trackSkip, onPlaySong]);
+
+  /* ---------------- REPEAT ---------------- */
+
+  const handleRepeat = useCallback(() => {
+    if (!audioRef.current) return;
+    trackRepeat(currentSong.id);
+    audioRef.current.currentTime = 0;
+    audioRef.current.play();
+  }, [currentSong, trackRepeat]);
+
+  /* ---------------- VOLUME ---------------- */
+
+  const handleVolumeChange = useCallback((v) => {
+    setVolume(v);
+    if (audioRef.current) {
+      audioRef.current.volume = v;
+    }
+    trackVolumeChange(v);
+  }, [trackVolumeChange]);
+
+  const handleShuffle = () => setShuffleMode(!shuffleMode);
+
+  /* ---------------- AUDIO EVENT LISTENERS ---------------- */
 
   useEffect(() => {
-
-    if (!currentSong || !audioRef.current) return;
-
-    audioRef.current.src = currentSong.audio_url;
-    audioRef.current.load();
-
-  }, [currentSong]);
-
-  /* ---------------- AUDIO EVENTS ---------------- */
-
-  useEffect(() => {
-
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -144,37 +201,21 @@ export const PlayerProvider = ({ children }) => {
     const loaded = () => setDuration(audio.duration);
 
     const ended = async () => {
-
-      if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
-
-        const now = audioRef.current.currentTime;
-        const listenedDuration = now - playStartTimeRef.current;
-
-        if (listenedDuration > 0) {
-
-          console.log("Song ended duration:", listenedDuration);
-          trackSongPause(currentSong.id, listenedDuration);
-
-        }
-
-      }
-
+      flushListeningTime(); // Save final time before it ended naturally
       setIsPlaying(false);
 
       if (!songQueue.length) return;
 
-      let next;
-
+      let nextIndex;
       if (shuffleMode) {
-        next = Math.floor(Math.random() * songQueue.length);
+        nextIndex = Math.floor(Math.random() * songQueue.length);
       } else {
-        next = currentQueueIndex + 1;
-        if (next >= songQueue.length) next = 0;
+        nextIndex = currentQueueIndex + 1;
+        if (nextIndex >= songQueue.length) nextIndex = 0;
       }
 
-      setCurrentQueueIndex(next);
-      await onPlaySong(songQueue[next]);
-
+      setCurrentQueueIndex(nextIndex);
+      await onPlaySong(songQueue[nextIndex]);
     };
 
     audio.addEventListener("timeupdate", updateTime);
@@ -182,234 +223,93 @@ export const PlayerProvider = ({ children }) => {
     audio.addEventListener("ended", ended);
 
     return () => {
-
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", loaded);
       audio.removeEventListener("ended", ended);
-
     };
+  }, [songQueue, currentQueueIndex, shuffleMode, onPlaySong, flushListeningTime]);
 
-  }, [songQueue, currentQueueIndex, shuffleMode, onPlaySong]);
+  /* ---------------- AUTO-PLAY WHEN SONG CHANGES ---------------- */
 
-  /* ---------------- PLAY / PAUSE ---------------- */
+  useEffect(() => {
+    if (!currentSong || !audioRef.current) return;
 
-  const handlePlayPause = useCallback(async () => {
+    audioRef.current.src = currentSong.audio_url;
+    audioRef.current.load();
 
-    if (!currentSong) return;
-
-    // PAUSE
     if (isPlaying) {
-
-      const now = audioRef.current.currentTime;
-      const listenedDuration = now - playStartTimeRef.current;
-
-      console.log("Pause duration:", listenedDuration);
-
-      if (listenedDuration > 0) {
-
-        trackSongPause(currentSong.id, listenedDuration);
-
-      }
-
-      audioRef.current.pause();
-      setIsPlaying(false);
-      playStartTimeRef.current = null;
-
-      return;
-
+      audioRef.current.play().catch(e => console.error("Auto-play error:", e));
     }
-
-    // PLAY
-    console.log("Play clicked");
-
-    if (!session.activeSession && !sessionIsAdmin) {
-
-      console.log("Starting session");
-
-      const sessionId = await startSession(currentSong.id);
-      if (!sessionId) return;
-
-      console.log("Session started:", sessionId);
-
-    }
-
-    await audioRef.current.play();
-
-    playStartTimeRef.current = audioRef.current.currentTime;
-
-    console.log("Play start time:", playStartTimeRef.current);
-
-    if (!sessionIsAdmin) {
-
-      trackSongPlay(
-        currentSong.id,
-        currentSong.category || "calm",
-        audioRef.current.currentTime
-      );
-
-    }
-
-    setIsPlaying(true);
-
-  }, [currentSong, isPlaying, session, sessionIsAdmin]);
-
-  /* ---------------- SKIP ---------------- */
-
-  const handleSkip = useCallback(async () => {
-
-    if (!currentSong) return;
-
-    if (audioRef.current && playStartTimeRef.current !== null) {
-
-      const now = audioRef.current.currentTime;
-      const listenedDuration = now - playStartTimeRef.current;
-
-      if (listenedDuration > 0) {
-
-        console.log("Skip duration:", listenedDuration);
-        trackSongPause(currentSong.id, listenedDuration);
-
-      }
-
-    }
-
-    trackSkip(currentSong.id);
-
-    let next = currentQueueIndex + 1;
-    if (next >= songQueue.length) next = 0;
-
-    setCurrentQueueIndex(next);
-
-    await onPlaySong(songQueue[next]);
-
-  }, [songQueue, currentQueueIndex, currentSong, onPlaySong]);
-
-  /* ---------------- REPEAT ---------------- */
-
-  const handleRepeat = useCallback(() => {
-
-    if (!audioRef.current) return;
-
-    trackRepeat(currentSong.id);
-
-    audioRef.current.currentTime = 0;
-    audioRef.current.play();
-
-    playStartTimeRef.current = 0;
-
-  }, [currentSong]);
-
-  /* ---------------- VOLUME ---------------- */
-
-  const handleVolumeChange = useCallback((v) => {
-
-    setVolume(v);
-
-    if (audioRef.current) audioRef.current.volume = v;
-
-    trackVolumeChange(v);
-
-  }, []);
-
-  /* ---------------- SHUFFLE ---------------- */
-
-  const handleShuffle = () => setShuffleMode(!shuffleMode);
+  }, [currentSong, isPlaying]);
 
   /* ---------------- END SESSION ---------------- */
 
   const handleEndSession = useCallback(async () => {
+    console.log("===== SESSION END REQUEST =====");
 
-    console.log("===== SESSION END =====");
+    // Save the final chunk of time BEFORE calculating the total!
+    flushListeningTime();
 
-    let totalListeningSeconds =
-      Array.from(session.songDurations.values())
+    const totalListeningSeconds = Array.from(session.songDurations.values())
       .reduce((sum, d) => sum + d, 0);
 
-    if (audioRef.current && playStartTimeRef.current !== null) {
-
-      const now = audioRef.current.currentTime;
-      totalListeningSeconds += now - playStartTimeRef.current;
-
-    }
-
-    console.log("Total listening seconds:", totalListeningSeconds);
+    console.log("Total Accurate Listening Seconds:", totalListeningSeconds);
 
     const MINIMUM = 300;
 
     if (totalListeningSeconds < MINIMUM) {
-
       const remaining = Math.ceil((MINIMUM - totalListeningSeconds) / 60);
-
-      showWarningToast(
-        `Listen at least 5 minutes. Remaining ${remaining} minute(s).`,
-        6000
-      );
-
+      showWarningToast(`Listen at least 5 minutes. Remaining ${remaining} minute(s).`, 6000);
+      
+      // Resume tracking because session was NOT ended
+      if (isPlaying && audioRef.current) {
+         playStartTimeRef.current = audioRef.current.currentTime;
+      }
       return;
-
     }
 
     await handleSessionEnd(session, (pred) => {
-
-      console.log("Prediction:", pred);
-
       setPrediction(pred);
       setShowPredictionModal(true);
-
     });
 
-    audioRef.current.pause();
+    if (audioRef.current) audioRef.current.pause();
     setIsPlaying(false);
     playStartTimeRef.current = null;
-
-  }, [session]);
+  }, [session, isPlaying, flushListeningTime]);
 
   /* ---------------- CONTEXT VALUE ---------------- */
 
   const value = {
-
     currentSong,
     setCurrentSong,
-
     isPlaying,
+    setIsPlaying,
     currentTime,
     duration,
     volume,
-
+    showExpanded,
+    setShowExpanded,
     onPlaySong,
-
     activeSession: session.activeSession,
-
     audioRef,
-
     handlePlayPause,
     handleSkip,
     handleRepeat,
     handleVolumeChange,
     handleShuffle,
-
     shuffleMode,
-
     handleEndSession,
-
     showPredictionModal,
     setShowPredictionModal,
-
     prediction,
     setPrediction
-
   };
 
   return (
-
     <PlayerContext.Provider value={value}>
-
       {children}
-
       <audio ref={audioRef} />
-
     </PlayerContext.Provider>
-
   );
-
 };
