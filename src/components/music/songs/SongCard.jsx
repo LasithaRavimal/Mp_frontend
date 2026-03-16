@@ -4,7 +4,7 @@ import AddToPlaylistModal from '../playlist/AddToPlaylistModal';
 import apiClient from '../../../api/apiClient';
 import { usePlayer } from '../../music/context/PlayerContext';
 
-const SongCard = ({ song, onPlay, showAddButton = true }) => {
+const SongCard = ({ song, showAddButton = true }) => {
 
   const { currentSong, isPlaying, handlePlayPause, onPlaySong } = usePlayer();
 
@@ -74,11 +74,14 @@ const SongCard = ({ song, onPlay, showAddButton = true }) => {
 
   e?.stopPropagation();
 
+  // if same song → toggle play/pause
   if (isCurrentlyPlaying) {
 
     handlePlayPause();
 
   } else {
+
+    console.log("SongCard play:", song.title);
 
     onPlaySong(song);
 
