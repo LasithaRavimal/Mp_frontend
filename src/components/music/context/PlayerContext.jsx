@@ -36,7 +36,6 @@ export const PlayerProvider = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
-  const [showExpanded, setShowExpanded] = useState(false);
 
   const [songQueue, setSongQueue] = useState([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
@@ -69,43 +68,47 @@ export const PlayerProvider = ({ children }) => {
 
   }, []);
 
-  /* ---------------- PLAY SONG ---------------- */
+  /* ---------------- LOAD SONG FROM CARD ---------------- */
 
   const onPlaySong = useCallback(async (song) => {
 
     if (!song) return;
 
-    // SAVE previous song listening duration
-if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
+    // SAVE previous song duration before switching
+    if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
 
-  const listenedDuration =
-    audioRef.current.currentTime - playStartTimeRef.current;
+      const now = audioRef.current.currentTime;
+      const listenedDuration = now - playStartTimeRef.current;
 
-  if (listenedDuration > 0) {
+      if (listenedDuration > 0) {
 
-    console.log("Saving previous song duration:", listenedDuration);
+        console.log("Saving previous song duration:", listenedDuration);
+        trackSongPause(currentSong.id, listenedDuration);
 
-    trackSongPause(currentSong.id, listenedDuration);
+      }
 
-  }
-
-}
+    }
 
     const isDifferent = currentSong && currentSong.id !== song.id;
 
     if (isDifferent && audioRef.current) {
+
       audioRef.current.currentTime = 0;
       setCurrentTime(0);
+
     }
 
     setSongQueue(prev => {
 
       if (!prev.length || !prev.find(s => s.id === song.id)) {
+
         buildQueue(song);
         return prev;
+
       }
 
       const index = prev.findIndex(s => s.id === song.id);
+
       if (index >= 0) setCurrentQueueIndex(index);
 
       return prev;
@@ -114,7 +117,7 @@ if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
 
     setCurrentSong(song);
 
-    // important → do NOT autoplay
+    // load song but DO NOT autoplay
     setIsPlaying(false);
 
   }, [currentSong, buildQueue]);
@@ -142,18 +145,21 @@ if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
 
     const ended = async () => {
 
-  if (audioRef.current && currentSong) {
+      if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
 
-    const listenedDuration =
-      audioRef.current.currentTime - playStartTimeRef.current;
+        const now = audioRef.current.currentTime;
+        const listenedDuration = now - playStartTimeRef.current;
 
-    if (listenedDuration > 0) {
-      trackSongPause(currentSong.id, listenedDuration);
-    }
+        if (listenedDuration > 0) {
 
-  }
+          console.log("Song ended duration:", listenedDuration);
+          trackSongPause(currentSong.id, listenedDuration);
 
-  setIsPlaying(false);
+        }
+
+      }
+
+      setIsPlaying(false);
 
       if (!songQueue.length) return;
 
@@ -176,9 +182,11 @@ if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
     audio.addEventListener("ended", ended);
 
     return () => {
+
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", loaded);
       audio.removeEventListener("ended", ended);
+
     };
 
   }, [songQueue, currentQueueIndex, shuffleMode, onPlaySong]);
@@ -189,15 +197,29 @@ if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
 
     if (!currentSong) return;
 
+    // PAUSE
     if (isPlaying) {
 
-      console.log("Pause");
+      const now = audioRef.current.currentTime;
+      const listenedDuration = now - playStartTimeRef.current;
+
+      console.log("Pause duration:", listenedDuration);
+
+      if (listenedDuration > 0) {
+
+        trackSongPause(currentSong.id, listenedDuration);
+
+      }
+
       audioRef.current.pause();
       setIsPlaying(false);
+      playStartTimeRef.current = null;
 
       return;
+
     }
 
+    // PLAY
     console.log("Play clicked");
 
     if (!session.activeSession && !sessionIsAdmin) {
@@ -211,9 +233,11 @@ if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
 
     }
 
-    audioRef.current.play();
+    await audioRef.current.play();
 
     playStartTimeRef.current = audioRef.current.currentTime;
+
+    console.log("Play start time:", playStartTimeRef.current);
 
     if (!sessionIsAdmin) {
 
@@ -233,26 +257,30 @@ if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
 
   const handleSkip = useCallback(async () => {
 
-    // save duration of current song before skipping
-if (audioRef.current && currentSong) {
+    if (!currentSong) return;
 
-  const listenedDuration =
-    audioRef.current.currentTime - playStartTimeRef.current;
+    if (audioRef.current && playStartTimeRef.current !== null) {
 
-  if (listenedDuration > 0) {
-    trackSongPause(currentSong.id, listenedDuration);
-  }
+      const now = audioRef.current.currentTime;
+      const listenedDuration = now - playStartTimeRef.current;
 
-}
+      if (listenedDuration > 0) {
 
-trackSkip(currentSong.id);
+        console.log("Skip duration:", listenedDuration);
+        trackSongPause(currentSong.id, listenedDuration);
 
-let next = currentQueueIndex + 1;
-if (next >= songQueue.length) next = 0;
+      }
 
-setCurrentQueueIndex(next);
+    }
 
-await onPlaySong(songQueue[next]);
+    trackSkip(currentSong.id);
+
+    let next = currentQueueIndex + 1;
+    if (next >= songQueue.length) next = 0;
+
+    setCurrentQueueIndex(next);
+
+    await onPlaySong(songQueue[next]);
 
   }, [songQueue, currentQueueIndex, currentSong, onPlaySong]);
 
@@ -263,8 +291,11 @@ await onPlaySong(songQueue[next]);
     if (!audioRef.current) return;
 
     trackRepeat(currentSong.id);
+
     audioRef.current.currentTime = 0;
     audioRef.current.play();
+
+    playStartTimeRef.current = 0;
 
   }, [currentSong]);
 
@@ -274,9 +305,7 @@ await onPlaySong(songQueue[next]);
 
     setVolume(v);
 
-    if (audioRef.current) {
-      audioRef.current.volume = v;
-    }
+    if (audioRef.current) audioRef.current.volume = v;
 
     trackVolumeChange(v);
 
@@ -290,17 +319,20 @@ await onPlaySong(songQueue[next]);
 
   const handleEndSession = useCallback(async () => {
 
-    console.log("===== SESSION END REQUEST =====");
+    console.log("===== SESSION END =====");
 
     let totalListeningSeconds =
       Array.from(session.songDurations.values())
       .reduce((sum, d) => sum + d, 0);
 
-    if (audioRef.current && currentSong) {
-      totalListeningSeconds += audioRef.current.currentTime;
+    if (audioRef.current && playStartTimeRef.current !== null) {
+
+      const now = audioRef.current.currentTime;
+      totalListeningSeconds += now - playStartTimeRef.current;
+
     }
 
-    console.log("Listening seconds:", totalListeningSeconds);
+    console.log("Total listening seconds:", totalListeningSeconds);
 
     const MINIMUM = 300;
 
@@ -330,7 +362,7 @@ await onPlaySong(songQueue[next]);
     setIsPlaying(false);
     playStartTimeRef.current = null;
 
-  }, [session, currentSong]);
+  }, [session]);
 
   /* ---------------- CONTEXT VALUE ---------------- */
 
@@ -340,14 +372,9 @@ await onPlaySong(songQueue[next]);
     setCurrentSong,
 
     isPlaying,
-    setIsPlaying,
-
     currentTime,
     duration,
     volume,
-
-    showExpanded,
-    setShowExpanded,
 
     onPlaySong,
 
