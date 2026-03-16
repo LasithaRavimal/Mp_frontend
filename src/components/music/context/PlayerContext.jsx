@@ -109,7 +109,26 @@ export const PlayerProvider = ({ children }) => {
     });
 
     setCurrentSong(song);
-    setIsPlaying(true);
+
+if (!session.activeSession && !sessionIsAdmin) {
+
+  console.log("🚀 Auto starting session");
+
+  const sessionId = await startSession(song.id);
+
+  console.log("Session started:", sessionId);
+
+  if (sessionId) {
+    trackSongPlay(
+      song.id,
+      song.category || "calm",
+      0
+    );
+  }
+
+}
+
+setIsPlaying(true);
 
   }, [currentSong, buildQueue]);
 
@@ -372,9 +391,16 @@ console.log("Session Events:", session.sessionEvents);
 
     }
 
-    const totalListeningSeconds =
-      Array.from(session.songDurations.values())
-        .reduce((sum, duration) => sum + duration, 0);
+    let totalListeningSeconds =
+  Array.from(session.songDurations.values())
+    .reduce((sum, duration) => sum + duration, 0);
+
+// add current playing song duration
+if (audioRef.current && currentSong) {
+  totalListeningSeconds += audioRef.current.currentTime;
+}
+
+console.log("Listening seconds:", totalListeningSeconds);
 
     const MINIMUM_LISTENING_TIME_SECONDS = 300;
 
