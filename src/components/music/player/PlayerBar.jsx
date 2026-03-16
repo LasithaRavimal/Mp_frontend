@@ -70,6 +70,22 @@ const PlayerBar = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getThumbnailUrl = (url) => {
+  if (!url) return null;
+
+  // already full URL (Supabase)
+  if (url.startsWith("http")) {
+    return url;
+  }
+
+  // fallback backend
+  const backend =
+    import.meta.env.VITE_BACKEND_URL ||
+    "https://music-player-col8.onrender.com";
+
+  return `${backend}${url}`;
+};
+
   
 
   return (
