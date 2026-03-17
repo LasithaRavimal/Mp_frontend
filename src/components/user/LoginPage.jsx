@@ -15,52 +15,14 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
  // ==========================================
-  // SMART ROUTING LOGIC (DATABASE CHECK)
+  // SIMPLE ROUTING LOGIC
   // ==========================================
-  const handleSuccessfulAuth = async (user) => {
-    if (user.role === 'admin') {
+  const handleSuccessfulAuth = (role) => {
+    if (role === 'admin') {
       navigate('/admin');
-      return;
-    } 
-    
-    try {
-      
-      const response = await apiClient.get('/questionnaire/check-today'); 
-      
-      if (response.data.has_done_today) {
-       
-        navigate('/musichome');
-      } else {
-        
-        navigate('/landing');
-      }
-    } catch (error) {
-      console.error("Failed to check assessment status:", error);
-      
+    } else {
+     
       navigate('/landing');
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const result = isLogin
-        ? await login(email, password)
-        : await register(email, password);
-
-      if (result.success) {
-        
-        await handleSuccessfulAuth(result.user);
-      } else {
-        setError(result.error);
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
     }
   };
 
