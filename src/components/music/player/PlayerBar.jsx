@@ -94,40 +94,37 @@ const PlayerBar = () => {
   
   return (
     <>
-      <div className="bg-spotify-light-gray border-t border-spotify-black px-3 md:px-6 py-2 md:py-3 flex items-center justify-between fixed bottom-0 left-0 right-0 z-[60] h-[70px] md:h-[90px]">
-        
-        {/* ======================= */}
-        {/* SONG INFO (Left Side)   */}
-        {/* ======================= */}
-        <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0 md:max-w-[30%]">
+      <div className="bg-spotify-light-gray border-t border-spotify-black px-6 py-3 flex items-center justify-between fixed bottom-0 left-0 right-0 z-50 h-[90px]">
+        {/* Song Info */}
+        <div className="flex items-center gap-4 flex-1 min-w-0 max-w-[30%]">
           {currentSong ? (
             <>
               {currentSong.thumbnail_url ? (
                 <img
                   src={getThumbnailUrl(currentSong.thumbnail_url)}
                   alt={currentSong.title}
-                  className="w-10 h-10 md:w-14 md:h-14 rounded object-cover shadow-md shrink-0"
+                  className="w-14 h-14 rounded object-cover shadow-md"
                 />
               ) : (
-                <div className="w-10 h-10 md:w-14 md:h-14 rounded bg-gradient-to-br from-spotify-green to-spotify-green-dark flex items-center justify-center shadow-md shrink-0">
-                  <span className="text-lg md:text-2xl">🎵</span>
+                <div className="w-14 h-14 rounded bg-gradient-to-br from-spotify-green to-spotify-green-dark flex items-center justify-center shadow-md">
+                  <span className="text-2xl">🎵</span>
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-white text-sm md:text-base truncate">{currentSong.title}</div>
-                <div className="text-xs md:text-sm text-text-gray truncate">{currentSong.artist}</div>
+                <div className="font-semibold text-white truncate">{currentSong.title}</div>
+                <div className="text-sm text-text-gray truncate">{currentSong.artist}</div>
               </div>
             </>
           ) : (
             <>
-              <div className="w-10 h-10 md:w-14 md:h-14 rounded bg-spotify-gray flex items-center justify-center opacity-50 shrink-0">
-                <svg className="w-5 h-5 md:w-6 md:h-6 text-text-gray" fill="currentColor" viewBox="0 0 20 20">
+              <div className="w-14 h-14 rounded bg-spotify-gray flex items-center justify-center opacity-50">
+                <svg className="w-6 h-6 text-text-gray" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                 </svg>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-text-gray text-sm md:text-base truncate opacity-50">Select a song</div>
-                <div className="hidden md:block text-sm text-text-gray truncate opacity-30">Choose from your library</div>
+                <div className="font-semibold text-text-gray truncate opacity-50">Select a song to start playing</div>
+                <div className="text-sm text-text-gray truncate opacity-30">Choose from your library</div>
               </div>
             </>
           )}
@@ -135,7 +132,7 @@ const PlayerBar = () => {
             <button
               onClick={handleToggleFavorite}
               disabled={isToggling}
-              className="hidden md:block text-text-gray hover:text-spotify-green transition-colors opacity-70 hover:opacity-100 disabled:opacity-50 shrink-0"
+              className="text-text-gray hover:text-spotify-green transition-colors opacity-70 hover:opacity-100 disabled:opacity-50"
               title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             >
               {isFavorite ? (
@@ -147,10 +144,8 @@ const PlayerBar = () => {
           )}
         </div>
 
-        {/* ================================== */}
-        {/* MAIN CONTROLS (Center - Desktop)   */}
-        {/* ================================== */}
-        <div className="hidden md:flex flex-col items-center gap-2 flex-1 max-w-[40%]">
+        {/* Controls */}
+        <div className="flex flex-col items-center gap-2 flex-1 max-w-[40%]">
           <div className="flex items-center gap-4">
             <button 
               onClick={handleShuffle}
@@ -236,90 +231,66 @@ const PlayerBar = () => {
           </div>
         </div>
 
-        {/* ======================================= */}
-        {/* RIGHT CONTROLS (Volume, Extra, Mobile)  */}
-        {/* ======================================= */}
-        <div className="flex items-center gap-2 md:gap-4 justify-end flex-1 md:max-w-[30%]">
-          
-          {/* Mobile ONLY Play/Pause Button */}
-          <button
-            onClick={handlePlayPause}
+        {/* Volume & Right Controls */}
+        <div className="flex items-center gap-4 flex-1 justify-end max-w-[30%]">
+          <button 
+            onClick={handleStop}
             disabled={!currentSong}
-            className="md:hidden text-white p-2 transition-transform disabled:opacity-30 shrink-0"
+            className="text-text-gray hover:text-white p-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Stop"
           >
-            {isPlaying ? (
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-              </svg>
-            )}
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+            </svg>
           </button>
-
-          {/* Desktop ONLY Extra Controls */}
-          <div className="hidden md:flex items-center gap-4">
-            <button 
-              onClick={handleStop}
-              disabled={!currentSong}
-              className="text-text-gray hover:text-white p-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Stop"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
-              </svg>
-            </button>
-            <button 
-              disabled={!currentSong}
-              className="text-text-gray hover:text-white p-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Volume"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
-              </svg>
-            </button>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={volume}
-              onChange={(e) => {
-                const newVolume = parseFloat(e.target.value);
-                if (handleVolumeChange) {
-                  handleVolumeChange(newVolume);
-                }
-              }}
-              disabled={!currentSong}
-              className="w-24 h-1 bg-spotify-gray rounded-lg appearance-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed slider-thumb"
-              style={{
-                background: currentSong
-                  ? `linear-gradient(to right, #1DB954 0%, #1DB954 ${volume * 100}%, #333 ${volume * 100}%, #333 100%)`
-                  : '#333'
-              }}
-            />
-          </div>
+          <button 
+            disabled={!currentSong}
+            className="text-text-gray hover:text-white p-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Volume"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={(e) => {
+              const newVolume = parseFloat(e.target.value);
+              if (handleVolumeChange) {
+                handleVolumeChange(newVolume);
+              }
+            }}
+            disabled={!currentSong}
+            className="w-24 h-1 bg-spotify-gray rounded-lg appearance-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed slider-thumb"
+            style={{
+              background: currentSong
+                ? `linear-gradient(to right, #1DB954 0%, #1DB954 ${volume * 100}%, #333 ${volume * 100}%, #333 100%)`
+                : '#333'
+            }}
+          />
           
-          {/* Find Stress Button */}
+          {/* Find Stress Button - Only visible when active session exists and user is not admin */}
           {activeSession && !isAdmin && (
             <button
               onClick={handleEndSession}
-              className="px-3 py-1.5 md:px-4 md:py-2 bg-spotify-green hover:bg-spotify-green-hover text-white rounded-full text-xs md:text-sm font-semibold transition-colors shrink-0 whitespace-nowrap"
+              className="px-4 py-2 bg-spotify-green hover:bg-spotify-green-hover text-white rounded-full text-sm font-semibold transition-colors"
               title="Find Your Stress Level"
             >
               Find Result
             </button>
           )}
           
-          {/* Expand Button */}
           <button
             onClick={() => currentSong && setShowExpanded(true)}
             disabled={!currentSong}
-            className="text-text-gray hover:text-white p-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            className="text-text-gray hover:text-white p-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title="Expand Player"
           >
-            <svg className="w-6 h-6 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
             </svg>
           </button>

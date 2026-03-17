@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../api/apiClient';
 import { usePlayer } from '../music/context/PlayerContext';
-import { MdMenu, MdClose } from 'react-icons/md';
 
 const MusicPlayer = () => {
   const { user, logout } = useAuth();
@@ -29,8 +28,8 @@ const MusicPlayer = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  /* ---------------- Load Songs ---------------- */
   useEffect(() => {
     loadSongs();
     loadFavorites();
@@ -81,116 +80,93 @@ const MusicPlayer = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  /* ---------------- UI ---------------- */
   return (
-    <div className="flex h-screen bg-spotify-black text-white relative overflow-hidden">
-
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/70 z-[40] md:hidden" 
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+    <div className="flex h-screen bg-spotify-black text-white">
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-[50] w-64 bg-spotify-dark-gray p-6 flex flex-col transition-transform duration-300 transform md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">M_Track</h1>
-          <button className="md:hidden text-text-gray hover:text-white" onClick={() => setIsSidebarOpen(false)}>
-            <MdClose size={24} />
-          </button>
-        </div>
+      <div className="w-64 bg-spotify-dark-gray p-6 flex flex-col">
+        <h1 className="text-2xl font-bold mb-6">M_Track</h1>
 
-        <div className="mb-6 overflow-y-auto">
-          <h3 className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Categories</h3>
+        <div className="mb-6">
+          <h3 className="text-xs text-gray-400 mb-2">Categories</h3>
           <button
-            onClick={() => { setSelectedCategory(''); setIsSidebarOpen(false); }}
-            className={`block w-full text-left mb-2 px-2 py-1 rounded ${selectedCategory === '' ? 'bg-spotify-gray text-white' : 'text-gray-300 hover:text-white'}`}
+            onClick={() => setSelectedCategory('')}
+            className="block w-full text-left text-gray-300 hover:text-white mb-2"
           >
             All
           </button>
           {categories.map(cat => (
             <button
               key={cat}
-              onClick={() => { setSelectedCategory(cat); setIsSidebarOpen(false); }}
-              className={`block w-full text-left mb-2 px-2 py-1 rounded ${selectedCategory === cat ? 'bg-spotify-gray text-white' : 'text-gray-300 hover:text-white'}`}
+              onClick={() => setSelectedCategory(cat)}
+              className="block w-full text-left text-gray-300 hover:text-white mb-2"
             >
               {cat}
             </button>
           ))}
         </div>
 
-        <div className="mt-auto border-t border-spotify-gray pt-4 text-sm text-gray-400 truncate">
-          <p className="truncate mb-2">{user?.email}</p>
-          <button onClick={logout} className="hover:text-white w-full text-left bg-red-500/10 text-red-400 px-3 py-2 rounded">
+        <div className="mt-auto border-t pt-4 text-sm text-gray-400">
+          <p>{user?.email}</p>
+          <button onClick={logout} className="hover:text-white mt-2">
             Logout
           </button>
         </div>
       </div>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col w-full h-full overflow-hidden">
-
-        {/* Mobile Header */}
-        <div className="md:hidden bg-spotify-dark-gray p-4 flex items-center gap-3 border-b border-spotify-gray">
-           <button onClick={() => setIsSidebarOpen(true)} className="text-white">
-             <MdMenu size={28} />
-           </button>
-           <h2 className="font-bold text-lg">M_Track</h2>
-        </div>
+      <div className="flex-1 flex flex-col">
 
         {/* Song List */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="flex-1 overflow-y-auto p-8">
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search songs..."
-            className="mb-6 w-full bg-spotify-light-gray p-3 rounded-full focus:outline-none focus:ring-2 focus:ring-spotify-green text-sm md:text-base"
+            className="mb-6 w-full bg-spotify-light-gray p-3 rounded"
           />
 
           {loading ? (
-            <div className="flex justify-center p-8"><p className="text-text-gray">Loading...</p></div>
+            <p>Loading...</p>
           ) : (
-            <div className="space-y-1">
-              {songs.map(song => (
-                <div
-                  key={song.id}
-                  onClick={() => onPlaySong(song)}
-                  className="flex items-center justify-between p-3 hover:bg-spotify-light-gray rounded-lg cursor-pointer transition-colors"
-                >
-                  <div className="min-w-0 pr-4">
-                    <p className="font-semibold text-sm md:text-base truncate">{song.title}</p>
-                    <p className="text-xs text-gray-400 truncate">{song.artist}</p>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(song.id);
-                    }}
-                    className="p-2 shrink-0"
-                  >
-                    {favorites.has(song.id) ? '💚' : '🤍'}
-                  </button>
+            songs.map(song => (
+              <div
+                key={song.id}
+                onClick={() => onPlaySong(song)}
+                className="flex items-center justify-between p-3 hover:bg-spotify-light-gray rounded cursor-pointer"
+              >
+                <div>
+                  <p className="font-semibold">{song.title}</p>
+                  <p className="text-xs text-gray-400">{song.artist}</p>
                 </div>
-              ))}
-            </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(song.id);
+                  }}
+                >
+                  {favorites.has(song.id) ? '💚' : '🤍'}
+                </button>
+              </div>
+            ))
           )}
         </div>
 
         {/* Player Bar */}
         {currentSong && (
-          <div className="bg-spotify-light-gray p-3 md:p-4 border-t border-spotify-gray">
-            <div className="flex items-center justify-between gap-2 md:gap-4 mb-2">
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-sm md:text-base truncate">{currentSong.title}</p>
-                <p className="text-xs text-gray-400 truncate">{currentSong.artist}</p>
+          <div className="bg-spotify-light-gray p-4 border-t">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold">{currentSong.title}</p>
+                <p className="text-xs text-gray-400">{currentSong.artist}</p>
               </div>
 
-              <div className="flex items-center gap-2 md:gap-4 shrink-0">
-                <button onClick={handleRepeat} className="hidden md:block text-xl">🔁</button>
-                <button onClick={handleSkip} className="hidden md:block text-xl">⏭</button>
-                <button onClick={handlePlayPause} className="bg-white text-black px-4 py-1.5 md:py-2 rounded-full font-bold text-sm md:text-base hover:scale-105">
+              <div className="flex items-center gap-4">
+                <button onClick={handleRepeat}>🔁</button>
+                <button onClick={handleSkip}>⏭</button>
+                <button onClick={handlePlayPause} className="bg-white text-black px-4 py-2 rounded">
                   {isPlaying ? 'Pause' : 'Play'}
                 </button>
               </div>
@@ -202,11 +178,10 @@ const MusicPlayer = () => {
                 step="0.01"
                 value={volume}
                 onChange={e => handleVolumeChange(parseFloat(e.target.value))}
-                className="hidden md:block w-24"
               />
             </div>
 
-            <div className="flex items-center gap-2 text-[10px] md:text-xs text-gray-400">
+            <div className="flex items-center gap-2 mt-2 text-xs">
               <span>{formatTime(currentTime)}</span>
               <input
                 type="range"
@@ -214,7 +189,7 @@ const MusicPlayer = () => {
                 max={duration || 0}
                 value={currentTime}
                 onChange={e => (audioRef.current.currentTime = e.target.value)}
-                className="flex-1 h-1 bg-spotify-gray appearance-none rounded"
+                className="flex-1"
               />
               <span>{formatTime(duration)}</span>
             </div>
@@ -224,22 +199,14 @@ const MusicPlayer = () => {
 
       {/* Prediction Modal */}
       {showPredictionModal && prediction && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[100]">
-          <div className="bg-spotify-dark-gray p-6 rounded-xl w-full max-w-sm border border-spotify-gray">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+          <div className="bg-spotify-dark-gray p-6 rounded w-96">
             <h2 className="text-xl font-bold mb-4">Session Analysis</h2>
-            <div className="space-y-2 mb-6">
-              <p className="flex justify-between bg-spotify-black p-3 rounded">
-                <span className="text-gray-400">Stress:</span> 
-                <span className="font-bold">{prediction.stress_level}</span>
-              </p>
-              <p className="flex justify-between bg-spotify-black p-3 rounded">
-                <span className="text-gray-400">Depression:</span> 
-                <span className="font-bold">{prediction.depression_level}</span>
-              </p>
-            </div>
+            <p>Stress: {prediction.stress_level}</p>
+            <p>Depression: {prediction.depression_level}</p>
             <button
               onClick={() => setShowPredictionModal(false)}
-              className="w-full bg-spotify-green hover:bg-green-500 text-black font-bold py-3 rounded-full transition-colors"
+              className="mt-4 w-full bg-spotify-green py-2 rounded"
             >
               Close
             </button>
