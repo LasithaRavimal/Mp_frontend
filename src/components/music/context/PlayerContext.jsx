@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { useSession } from "../../../components/music/context/SessionContext";
-import { handleSessionEnd } from "../../../utils/musicSessionEndHandler";
 import { showWarningToast } from "../../../utils/notifications";
 import apiClient from "../../../api/apiClient";
 
@@ -15,7 +14,7 @@ export const usePlayer = () => {
 
 export const PlayerProvider = ({ children }) => {
   const audioRef = useRef(null);
-  const playStartTimeRef = useRef(null);
+  const playStartTimeRef = useRef(null); // WILL NOW STORE REAL-WORLD TIME
 
   const { isAdmin } = useAuth();
   const session = useSession();
@@ -62,14 +61,16 @@ export const PlayerProvider = ({ children }) => {
   }, []);
 
   /* ---------------- HELPER: SAVE EXACT LISTENING TIME ---------------- */
-  // Flushes the duration of the current audio chunk to the session context
+  // Flushes the duration using REAL WORLD time, making it immune to seeking/skipping bugs
   const flushListeningTime = useCallback(() => {
-    if (audioRef.current && currentSong && playStartTimeRef.current !== null) {
-      const listenedDuration = audioRef.current.currentTime - playStartTimeRef.current;
+    if (currentSong && playStartTimeRef.current !== null) {
+      // Calculate actual seconds spent listening in the real world
+      const listenedDurationSeconds = (Date.now() - playStartTimeRef.current) / 1000;
       
-      if (listenedDuration > 0) {
-        console.log(`[Session] Saving duration: ${listenedDuration.toFixed(2)}s for ${currentSong.title}`);
-        trackSongPause(currentSong.id, listenedDuration);
+      // Sanity check: Only save if > 0 and less than 12 hours (prevents infinite bugs)
+      if (listenedDurationSeconds > 0 && listenedDurationSeconds < 43200) {
+        console.log(`[Session] Saving REAL duration: ${listenedDurationSeconds.toFixed(2)}s for ${currentSong.title}`);
+        trackSongPause(currentSong.id, listenedDurationSeconds);
       }
       playStartTimeRef.current = null; // Reset until played again
     }
@@ -97,7 +98,9 @@ export const PlayerProvider = ({ children }) => {
       }
 
       audioRef.current.play().catch(e => console.error("Play error:", e));
-      playStartTimeRef.current = audioRef.current.currentTime;
+      
+      // 🚀 THE FIX: Record the exact moment playback starts in the real world
+      playStartTimeRef.current = Date.now(); 
       
       if (!sessionIsAdmin) {
         trackSongPlay(currentSong.id, currentSong.category || "calm", audioRef.current.currentTime);
@@ -138,7 +141,9 @@ export const PlayerProvider = ({ children }) => {
     }
 
     setIsPlaying(true);
-    playStartTimeRef.current = 0; // Starts from 0 since it's a new song
+    
+    // 🚀 THE FIX: Start timing the new song immediately using real-world time
+    playStartTimeRef.current = Date.now(); 
 
     if (!sessionIsAdmin) {
       trackSongPlay(song.id, song.category || "calm", 0);
@@ -242,11 +247,10 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [currentSong, isPlaying]);
 
- /* ---------------- END SESSION ---------------- */
+  /* ---------------- END SESSION ---------------- */
   const handleEndSession = useCallback(async () => {
     console.log("===== SESSION END REQUEST =====");
 
-    
     flushListeningTime();
 
     const totalListeningSeconds = Array.from(session.songDurations.values())
@@ -254,8 +258,7 @@ export const PlayerProvider = ({ children }) => {
 
     console.log("Total Accurate Listening Seconds:", totalListeningSeconds);
 
-   
-    const MINIMUM = 0;
+    const MINIMUM = 0; // Keeping your minimum at 0
 
     if (totalListeningSeconds < MINIMUM) {
       const remaining = Math.ceil((MINIMUM - totalListeningSeconds) / 60);
@@ -265,13 +268,12 @@ export const PlayerProvider = ({ children }) => {
 
     try {
       console.log("Sending REAL behavior data to database...");
-     
+      
       const result = await session.endSession(); 
       
       if(result && result.prediction) {
          setPrediction(result.prediction);
       }
-      
       
       setShowPredictionModal(true);
 
@@ -280,7 +282,6 @@ export const PlayerProvider = ({ children }) => {
       setShowPredictionModal(true); 
     }
 
-    
     if (audioRef.current) audioRef.current.pause();
     setIsPlaying(false);
     playStartTimeRef.current = null;
