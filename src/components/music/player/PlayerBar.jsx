@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useSession } from '../../music/context/SessionContext';
 import { MdFavorite, MdFavoriteBorder } from 'react-icons/md';
 import apiClient from '../../../api/apiClient';
+import PredictionModal from '../ResultModal';
 
 const PlayerBar = () => {
   const {
@@ -294,9 +295,15 @@ console.log("isAdmin:", isAdmin);
           </button>
         </div>
       </div>
+    {/* 2. ADDED THIS BLOCK: This renders the modal exactly when it is triggered!  */}
+      {showPredictionModal && (
+        <PredictionModal 
+          isOpen={showPredictionModal} 
+          onClose={() => setShowPredictionModal(false)} 
+        />
+      )}
     </>
   );
 };
 
 export default PlayerBar;
-
