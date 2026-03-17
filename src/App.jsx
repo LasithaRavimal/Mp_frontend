@@ -27,6 +27,7 @@ import PlaylistPage from "./components/music/playlist/PlaylistPage";
 ========================= */
 
 import SongManagement from "./components/admin/music/SongManagement";
+import ResearchDashboard from "./components/admin/music/ResearchDashboard";
 
 /* =========================
    LOADER
@@ -208,6 +209,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requireAdmin>
             <SongManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/research"
+        element={
+          <ProtectedRoute requireAdmin>
+            <ResearchDashboard />
           </ProtectedRoute>
         }
       />

@@ -242,12 +242,11 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [currentSong, isPlaying]);
 
-  /* ---------------- END SESSION ---------------- */
-
+ /* ---------------- END SESSION ---------------- */
   const handleEndSession = useCallback(async () => {
     console.log("===== SESSION END REQUEST =====");
 
-    // Save the final chunk of time BEFORE calculating the total!
+    // 1. Save the final chunk of time
     flushListeningTime();
 
     const totalListeningSeconds = Array.from(session.songDurations.values())
@@ -255,27 +254,39 @@ export const PlayerProvider = ({ children }) => {
 
     console.log("Total Accurate Listening Seconds:", totalListeningSeconds);
 
-    const MINIMUM = 1;
+    // 2. MINIMUM CHECK (Set to 0 for testing!)
+    const MINIMUM = 0;
 
     if (totalListeningSeconds < MINIMUM) {
       const remaining = Math.ceil((MINIMUM - totalListeningSeconds) / 60);
       showWarningToast(`Listen at least 5 minutes. Remaining ${remaining} minute(s).`, 6000);
       
-      // Resume tracking because session was NOT ended
       if (isPlaying && audioRef.current) {
          playStartTimeRef.current = audioRef.current.currentTime;
       }
       return;
     }
 
-    await handleSessionEnd(session, (pred) => {
-      setPrediction(pred);
-      setShowPredictionModal(true);
-    });
+    try {
+      // 3. BYPASS MIDDLEMAN: Directly call the session context to end and save to DB
+      console.log("Sending data to database...");
+      const result = await session.endSession(); 
+      console.log("Backend Response:", result);
 
+      // 4. ABSOLUTELY FORCE THE MODAL TO OPEN
+      setShowPredictionModal(true);
+
+    } catch (error) {
+      console.error("Failed to save session to DB:", error);
+      // Even if it fails, open the modal so we can see the Questionnaire results
+      setShowPredictionModal(true); 
+    }
+
+    // 5. Cleanup the player
     if (audioRef.current) audioRef.current.pause();
     setIsPlaying(false);
     playStartTimeRef.current = null;
+    
   }, [session, isPlaying, flushListeningTime]);
 
   /* ---------------- CONTEXT VALUE ---------------- */

@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { MdDashboard } from 'react-icons/md';
+import { MdDashboard, MdAssessment } from 'react-icons/md'; // Added MdAssessment
 
 const AdminSidebar = () => {
   const { user, logout } = useAuth();
@@ -10,6 +10,7 @@ const AdminSidebar = () => {
 
   const menuItems = [
     { path: '/admin', icon: MdDashboard, label: 'Song Management' },
+    { path: '/admin/research', icon: MdAssessment, label: 'Research Data' }, // New Link
   ];
 
   return (
@@ -46,9 +47,7 @@ const AdminSidebar = () => {
 
       {/* User Section */}
       <div className="p-4 border-t border-spotify-light-gray mt-auto">
-
         <div className="flex items-center gap-3 mb-3 px-4 py-2 rounded-lg hover:bg-spotify-dark-gray cursor-pointer">
-
           {user?.profile_picture ? (
             <img
               src={user.profile_picture}
@@ -67,7 +66,6 @@ const AdminSidebar = () => {
             </div>
             <div className="text-xs text-text-gray">Admin</div>
           </div>
-
         </div>
 
         <button
@@ -76,7 +74,6 @@ const AdminSidebar = () => {
         >
           Logout
         </button>
-
       </div>
     </div>
   );

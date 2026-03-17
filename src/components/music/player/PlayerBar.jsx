@@ -24,8 +24,11 @@ const PlayerBar = () => {
     handleShuffle,
     shuffleMode,
     activeSession,
-    handleEndSession
+    handleEndSession,
+    showPredictionModal,
+    setShowPredictionModal
   } = usePlayer();
+
   const { user } = useAuth();
   const { isAdmin } = useSession();
   const [isFavorite, setIsFavorite] = useState(false);
@@ -72,27 +75,23 @@ const PlayerBar = () => {
   };
 
   const getThumbnailUrl = (url) => {
-  if (!url) return null;
+    if (!url) return null;
 
-  // already full URL (Supabase)
-  if (url.startsWith("http")) {
-    return url;
-  }
+    // already full URL (Supabase)
+    if (url.startsWith("http")) {
+      return url;
+    }
 
-  // fallback backend
-  const backend =
-    import.meta.env.VITE_BACKEND_URL ||
-    "https://music-player-col8.onrender.com";
+    // fallback backend
+    const backend = import.meta.env.VITE_BACKEND_URL || "https://music-player-col8.onrender.com";
+    return `${backend}${url}`;
+  };
 
-  return `${backend}${url}`;
-};
-
-console.log("PLAYER BAR RENDER");
-console.log("currentSong:", currentSong);
-console.log("activeSession:", activeSession);
-console.log("isAdmin:", isAdmin);
+  console.log("PLAYER BAR RENDER");
+  console.log("currentSong:", currentSong);
+  console.log("activeSession:", activeSession);
+  console.log("isAdmin:", isAdmin);
   
-
   return (
     <>
       <div className="bg-spotify-light-gray border-t border-spotify-black px-6 py-3 flex items-center justify-between fixed bottom-0 left-0 right-0 z-50 h-[90px]">
@@ -273,6 +272,7 @@ console.log("isAdmin:", isAdmin);
                 : '#333'
             }}
           />
+          
           {/* Find Stress Button - Only visible when active session exists and user is not admin */}
           {activeSession && !isAdmin && (
             <button
@@ -283,6 +283,7 @@ console.log("isAdmin:", isAdmin);
               Find Result
             </button>
           )}
+          
           <button
             onClick={() => currentSong && setShowExpanded(true)}
             disabled={!currentSong}
@@ -295,7 +296,9 @@ console.log("isAdmin:", isAdmin);
           </button>
         </div>
       </div>
-    {/* 2. ADDED THIS BLOCK: This renders the modal exactly when it is triggered!  */}
+
+      {/* FIXED SYNTAX: Properly wrapped the comment inside the JSX syntax */}
+      {/* This renders the modal exactly when it is triggered! */}
       {showPredictionModal && (
         <PredictionModal 
           isOpen={showPredictionModal} 

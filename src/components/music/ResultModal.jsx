@@ -1,36 +1,21 @@
 import { useState, useEffect } from 'react';
-import { MdClose, MdAssessment, MdAudiotrack, MdInfo } from 'react-icons/md';
-import apiClient from '../../../api/apiClient';
+import apiClient from '../../api/apiClient';
+import AdminSidebar from '../admin/music/AdminSidebar';
 
-const PredictionModal = ({ isOpen, onClose }) => {
-  const [questionnaireData, setQuestionnaireData] = useState(null);
-  const [musicPrediction, setMusicPrediction] = useState(null);
+const ResearchDashboard = () => {
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchData();
-    }
-  }, [isOpen]);
+    fetchResearchData();
+  }, []);
 
-  const fetchData = async () => {
+  const fetchResearchData = async () => {
     try {
-      // 1. Get Questionnaire Results
-      const qRes = await apiClient.get('/questionnaire/latest');
-      setQuestionnaireData(qRes.data);
-
-      // 2. Get the specific session data
-      // If you pass the session_id as a prop to this modal, use that.
-      // Otherwise, the latest session from the list is fine:
-      const sRes = await apiClient.get('/sessions'); 
-      
-      if (sRes.data && sRes.data.length > 0) {
-        // Find the most recent session that has a 'prediction' object
-        const latestWithPrediction = sRes.data.find(s => s.prediction) || sRes.data[0];
-        setMusicPrediction(latestWithPrediction.prediction);
-      }
+      const response = await apiClient.get('/admin/research-data');
+      setData(response.data);
     } catch (error) {
-      console.error("Data fetch failed", error);
+      console.error("Failed to fetch research data:", error);
     } finally {
       setLoading(false);
     }
@@ -38,85 +23,122 @@ const PredictionModal = ({ isOpen, onClose }) => {
 
   const getStatusColor = (level) => {
     const l = level?.toLowerCase();
-    if (l === 'high') return 'text-red-500 border-red-500/30 bg-red-500/10';
-    if (l === 'moderate') return 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10';
-    return 'text-spotify-green border-spotify-green/30 bg-spotify-green/10';
+    if (l === 'high') return 'bg-red-500/20 text-red-400 border border-red-500/30';
+    if (l === 'moderate') return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+    return 'bg-spotify-green/20 text-spotify-green border border-spotify-green/30';
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <div className="bg-spotify-dark-gray border border-spotify-gray rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden">
-        
-        {/* HEADER */}
-        <div className="p-6 border-b border-spotify-gray flex justify-between items-center bg-spotify-black/40">
-          <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">Analysis Results</h2>
-            <p className="text-text-gray text-sm">Cross-referencing behavior with screening</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-spotify-gray rounded-full text-white transition-colors">
-            <MdClose size={28} />
-          </button>
-        </div>
-
-        <div className="p-8 space-y-8">
+    <div className="flex h-screen bg-spotify-black overflow-hidden">
+      <AdminSidebar />
+      
+      <div className="flex-1 flex flex-col overflow-hidden bg-spotify-dark-gray">
+        <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
           
-          {/* SECTION 1: MUSIC BEHAVIOR PREDICTION */}
-          <div className="relative p-6 rounded-2xl bg-gradient-to-br from-spotify-light-gray to-spotify-black border border-spotify-gray">
-            <div className="flex items-center gap-3 mb-4">
-              <MdAudiotrack className="text-spotify-green text-2xl" />
-              <h3 className="text-white font-bold uppercase tracking-widest text-sm">Behavioral Prediction</h3>
-            </div>
-
-            {loading ? <div className="h-20 animate-pulse bg-spotify-gray rounded-lg" /> : (
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`p-4 rounded-xl border ${getStatusColor(musicPrediction?.depression_level)}`}>
-                  <p className="text-xs opacity-70 mb-1 uppercase">Depression Indicator</p>
-                  <p className="text-xl font-black">{musicPrediction?.depression_level || "Analyzing..."}</p>
-                </div>
-                <div className={`p-4 rounded-xl border ${getStatusColor(musicPrediction?.stress_level)}`}>
-                  <p className="text-xs opacity-70 mb-1 uppercase">Stress Indicator</p>
-                  <p className="text-xl font-black">{musicPrediction?.stress_level || "Analyzing..."}</p>
-                </div>
-              </div>
-            )}
-            <div className="mt-4 flex items-start gap-2 text-[10px] text-text-gray italic">
-              <MdInfo size={14} className="shrink-0" />
-              <span>This prediction is based on your listening habits (time of day, song choice, and skip frequency).</span>
-            </div>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white">Research Data Dashboard</h1>
+            <p className="text-text-gray mt-2">Combined user listening behavior and stress/depression indicators.</p>
           </div>
 
-          {/* SECTION 2: CLINICAL SCREENING RESULTS */}
-          <div className="p-6 rounded-2xl bg-spotify-black/40 border border-spotify-gray">
-            <div className="flex items-center gap-3 mb-4">
-              <MdAssessment className="text-indigo-400 text-2xl" />
-              <h3 className="text-white font-bold uppercase tracking-widest text-sm">Self-Reported Screening</h3>
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="w-10 h-10 border-4 border-spotify-green border-t-transparent rounded-full animate-spin"></div>
             </div>
+          ) : (
+            <div className="bg-spotify-black rounded-xl border border-spotify-gray overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-spotify-light-gray text-white border-b border-spotify-gray text-xs uppercase tracking-wider">
+                      <th className="px-6 py-4 font-semibold w-1/6">User Email</th>
+                      <th className="px-6 py-4 font-semibold w-1/6">Date</th>
+                      <th className="px-6 py-4 font-semibold w-1/6">Top Category</th>
+                      {/* SINGLE COMBINED BEHAVIOR COLUMN */}
+                      <th className="px-6 py-4 font-semibold text-spotify-green w-2/6">Listening Behavior Profile</th>
+                      <th className="px-6 py-4 font-semibold text-center w-1/12">Pred. Depression</th>
+                      <th className="px-6 py-4 font-semibold text-center w-1/12">Pred. Stress</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-spotify-gray/50">
+                    {data.map((row) => (
+                      <tr key={row.session_id} className="hover:bg-spotify-light-gray/30 transition-colors align-top">
+                        
+                        {/* 1. EMAIL */}
+                        <td className="px-6 py-5 font-medium text-white">{row.email}</td>
+                        
+                        {/* 2. DATE */}
+                        <td className="px-6 py-5 text-sm text-text-gray">
+                          {new Date(row.date).toLocaleDateString()} <br/>
+                          <span className="text-xs opacity-70">{new Date(row.date).toLocaleTimeString()}</span>
+                        </td>
+                        
+                        {/* 3. CATEGORY */}
+                        <td className="px-6 py-5 text-sm text-white capitalize font-semibold">
+                          {row.behavior?.song_category_mode || "N/A"}
+                        </td>
+                        
+                        {/* 4. COMBINED BEHAVIOR LIST */}
+                        <td className="px-6 py-5">
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                            <div className="flex flex-col">
+                              <span className="text-text-gray opacity-70">Time of Day</span>
+                              <span className="text-white">{row.behavior?.listening_time_of_day || "N/A"}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-text-gray opacity-70">Session Length</span>
+                              <span className="text-white">{row.behavior?.session_length_bucket || "N/A"}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-text-gray opacity-70">Volume</span>
+                              <span className="text-white">{row.behavior?.volume_level_bucket || "N/A"}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-text-gray opacity-70">Skips</span>
+                              <span className="text-white">{row.behavior?.skip_rate_bucket || "N/A"}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-text-gray opacity-70">Repeats</span>
+                              <span className="text-white">{row.behavior?.repeat_bucket || "N/A"}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-text-gray opacity-70">Diversity</span>
+                              <span className="text-white">{row.behavior?.song_diversity_bucket || "N/A"}</span>
+                            </div>
+                          </div>
+                        </td>
 
-            {loading ? <div className="h-20 animate-pulse bg-spotify-gray rounded-lg" /> : (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-spotify-light-gray/50 p-4 rounded-xl">
-                  <p className="text-xs text-text-gray mb-1 uppercase">PHQ-9 Result</p>
-                  <p className="text-lg font-bold text-white">{questionnaireData?.depression_level || "N/A"}</p>
-                </div>
-                <div className="bg-spotify-light-gray/50 p-4 rounded-xl">
-                  <p className="text-xs text-text-gray mb-1 uppercase">DASS-21 Result</p>
-                  <p className="text-lg font-bold text-white">{questionnaireData?.stress_level || "N/A"}</p>
-                </div>
+                        {/* 5. PREDICTION - DEPRESSION */}
+                        <td className="px-6 py-5 text-center align-middle">
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${getStatusColor(row.prediction?.depression_level)}`}>
+                            {row.prediction?.depression_level || "Unknown"}
+                          </span>
+                        </td>
+
+                        {/* 6. PREDICTION - STRESS */}
+                        <td className="px-6 py-5 text-center align-middle">
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${getStatusColor(row.prediction?.stress_level)}`}>
+                            {row.prediction?.stress_level || "Unknown"}
+                          </span>
+                        </td>
+                        
+                      </tr>
+                    ))}
+                    {data.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="p-8 text-center text-text-gray">
+                          No research data collected yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="p-6 bg-spotify-black/60 border-t border-spotify-gray flex justify-center">
-          <button onClick={onClose} className="bg-spotify-green text-black font-bold px-12 py-3 rounded-full hover:scale-105 transition-transform">
-            Done
-          </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default PredictionModal;
+export default ResearchDashboard;
