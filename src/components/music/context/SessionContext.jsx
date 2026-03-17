@@ -207,8 +207,8 @@ export const SessionProvider = ({ children }) => {
     });
   }, [activeSession, trackEvent]);
   
-  // End session - this will be called by sessionEndHandler with aggregation
-  const endSession = useCallback(async (aggregatedData = null) => {
+  // End session - Real Data Aggregation
+  const endSession = useCallback(async (customAggregatedData = null) => {
     if (isAdmin || !activeSession) return null;
     
     try {
@@ -218,26 +218,22 @@ export const SessionProvider = ({ children }) => {
         inactivityTimerRef.current = null;
       }
       
-      // If aggregated data not provided, create minimal aggregation
-      // (Usually sessionEndHandler will provide this)
-      if (!aggregatedData) {
-        // Use minimal defaults - sessionEndHandler should handle full aggregation
-        aggregatedData = {
-          song_category_mode: 'calm',
-          skip_rate_bucket: 'Never',
-          repeat_bucket: 'None',
-          duration_ratio_bucket: 'Around 50%',
-          session_length_bucket: 'Less than 10 min',
-          volume_level_bucket: 'Medium',
-          song_diversity_bucket: 'One category',
-          listening_time_of_day: _getListeningTimeOfDay()
-        };
-      }
+      // 🟢 REAL DATA CALCULATION
+      const realAggregatedData = customAggregatedData || {
+        song_category_mode: _getMostFrequentCategory(),
+        skip_rate_bucket: skipCount === 0 ? 'Never' : skipCount <= 2 ? '1-2 times' : skipCount <= 5 ? '3-5 times' : 'More than 5 times',
+        repeat_bucket: repeatCount === 0 ? 'None' : repeatCount <= 2 ? '1-2 times' : repeatCount <= 5 ? '3-5 times' : 'More than 5 times',
+        duration_ratio_bucket: 'Around 50%',
+        session_length_bucket: sessionStartTime ? _calculateSessionLengthBucket(sessionStartTime, new Date()) : 'Less than 10 min',
+        volume_level_bucket: _getAverageVolumeBucket(),
+        song_diversity_bucket: _getSongDiversityBucket(),
+        listening_time_of_day: _getListeningTimeOfDay()
+      };
       
       const response = await apiClient.post('/sessions/end', {
         session_id: activeSession,
         events: sessionEvents,
-        aggregated_data: aggregatedData
+        aggregated_data: realAggregatedData 
       });
       
       // Clear session state
@@ -254,12 +250,11 @@ export const SessionProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('Failed to end session:', error);
-      // Still clear state even if API call fails
       setActiveSession(null);
       setSessionEvents([]);
       return null;
     }
-  }, [activeSession, sessionEvents, isAdmin]);
+  }, [activeSession, sessionEvents, isAdmin, skipCount, repeatCount, sessionStartTime, songsPlayed, volumeHistory]);
   
           // End session on logout
           useEffect(() => {

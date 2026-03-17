@@ -27,7 +27,7 @@ const LoginPage = () => {
 
       if (lastAssessment === today) {
         // Already did the test -> Go straight to Music Player!
-        navigate('/library');
+        navigate('/musichome');
       } else {
         // Needs to do the test -> Go to Landing Page
         navigate('/landing');
