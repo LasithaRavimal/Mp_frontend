@@ -58,15 +58,36 @@ const MusicProfile  = () => {
       
       // Calculate total listening time
       let totalMinutes = 0;
+      
       sessions.forEach(session => {
-        const started = session.started_at ? new Date(session.started_at) : null;
-        const ended = session.ended_at ? new Date(session.ended_at) : null;
-        if (started && ended) {
-          const diff = (ended - started) / (1000 * 60); // Convert to minutes
-          totalMinutes += diff;
+        let sessionMins = 0;
+
+        // 1. Check if we have exact time tracked in aggregated_data
+        if (session.aggregated_data && session.aggregated_data.total_listen_time_seconds) {
+          sessionMins = (session.aggregated_data.total_listen_time_seconds / 60);
+        } 
+        // 2. Fallback: Calculate from timestamps safely
+        else {
+          const started = session.started_at ? new Date(session.started_at).getTime() : null;
+          const ended = session.ended_at ? new Date(session.ended_at).getTime() : null;
+          
+          if (started && ended && !isNaN(started) && !isNaN(ended)) {
+            sessionMins = (ended - started) / (1000 * 60);
+          }
+        }
+
+        // HARD CAP: If a single session claims to be longer than 60 minutes (1 hour) or is negative, 
+        // it is a bugged/abandoned session. We cap it at 60 mins max so it doesn't break your profile stats.
+        if (sessionMins > 0) {
+          if (sessionMins > 60) {
+            totalMinutes += 60; // Cap corrupted sessions at 1 hour
+          } else {
+            totalMinutes += sessionMins;
+          }
         }
       });
-      console.log('Total listening time (minutes):', totalMinutes);
+
+      console.log('Cleaned Total listening time (minutes):', totalMinutes);
       
       // Calculate favorite categories from both sessions and favorite songs
       const categoryCounts = {};
