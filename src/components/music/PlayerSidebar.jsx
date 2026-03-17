@@ -7,10 +7,12 @@ import {
   MdLibraryMusic,
   MdAnalytics,
   MdExpandMore,
-  MdExpandLess
+  MdExpandLess,
+  MdClose // ADDED: Close icon for mobile
 } from 'react-icons/md';
 
-const Sidebar = () => {
+// ADDED: Accept isOpen and setIsOpen props
+const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const { isAdmin } = useAuth();
   const location = useLocation();
@@ -32,14 +34,25 @@ const Sidebar = () => {
 
   const handleCategoryClick = (category) => {
     navigate(`/category/${encodeURIComponent(category)}`);
+    if (setIsOpen) setIsOpen(false); // ADDED: Close sidebar on mobile
   };
 
   return (
+    // ADDED: Mobile sliding classes (fixed, transform, translate)
+    <div 
+      className={`fixed inset-y-0 left-0 z-[50] w-64 bg-spotify-black border-r border-spotify-light-gray h-full flex flex-col pb-[90px] transition-transform duration-300 transform md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+    >
 
-    <div className="w-64 bg-spotify-black border-r border-spotify-light-gray h-screen flex flex-col pb-[90px]">
+      {/* ADDED: Mobile Close Button */}
+      <button 
+        className="md:hidden absolute top-6 right-4 text-text-gray hover:text-white"
+        onClick={() => setIsOpen && setIsOpen(false)}
+      >
+        <MdClose size={24} />
+      </button>
 
       {/* Logo */}
-      <div className="p-6 border-b border-spotify-light-gray">
+      <div className="p-6 border-b border-spotify-light-gray mt-2 md:mt-0">
         <h1 className="text-2xl font-bold text-white">
           <span className="text-spotify-green">M</span>_Track
         </h1>
@@ -57,6 +70,7 @@ const Sidebar = () => {
 
               <Link
                 to={item.path}
+                onClick={() => setIsOpen && setIsOpen(false)} // ADDED: Close sidebar on mobile
                 className={`flex items-center gap-4 px-4 py-3 rounded-lg transition-colors ${
                   isActive(item.path)
                     ? 'bg-spotify-light-gray text-white font-bold'
@@ -108,7 +122,7 @@ const Sidebar = () => {
 
                 <button
                   key={cat}
-                  onClick={() => handleCategoryClick(cat)}
+                  onClick={() => handleCategoryClick(cat)} // Uses the updated function above
                   className={`w-full text-left px-4 py-2 text-sm rounded-lg transition-colors ${
                     location.pathname === `/category/${encodeURIComponent(cat)}`
                       ? 'bg-spotify-light-gray text-white font-bold'

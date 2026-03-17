@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { MdAccountCircle, MdSettings, MdLogout, MdPerson } from 'react-icons/md';
+import { MdAccountCircle, MdSettings, MdLogout, MdPerson, MdMenu } from 'react-icons/md';
 
-const TopBar = () => {
+const TopBar = ({ toggleSidebar }) => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,15 +42,24 @@ const TopBar = () => {
   };
 
   return (
-    <div className="bg-spotify-dark-gray border-b border-spotify-light-gray px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+    <div className="bg-spotify-dark-gray border-b border-spotify-light-gray px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-10 gap-3">
+      
+      {/* Hamburger Menu Icon (Mobile Only) */}
+      <button 
+        onClick={toggleSidebar} 
+        className="md:hidden text-text-gray hover:text-white transition-colors shrink-0"
+      >
+        <MdMenu size={28} />
+      </button>
+
       <form onSubmit={handleSearch} className="flex-1 max-w-md">
         <div className="relative">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="What do you want to play?"
-            className="w-full px-4 py-2 pl-10 pr-4 bg-spotify-light-gray border border-transparent rounded-full text-white placeholder-text-gray focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent"
+            placeholder="Search..."
+            className="w-full px-4 py-2 pl-10 pr-4 bg-spotify-light-gray border border-transparent rounded-full text-white text-sm md:text-base placeholder-text-gray focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent"
           />
           <svg
             className="absolute left-3 top-2.5 w-5 h-5 text-text-gray"
@@ -71,16 +80,16 @@ const TopBar = () => {
       <div className="flex items-center gap-4 relative" ref={dropdownRef}>
         <button
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-          className="focus:outline-none"
+          className="focus:outline-none shrink-0"
         >
           {user?.profile_picture ? (
             <img
               src={user.profile_picture}
               alt={user.email}
-              className="w-10 h-10 rounded-full cursor-pointer hover:ring-2 ring-spotify-green transition-all"
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full cursor-pointer hover:ring-2 ring-spotify-green transition-all"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-spotify-green flex items-center justify-center text-white font-semibold cursor-pointer hover:bg-spotify-green-hover transition-colors">
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-spotify-green flex items-center justify-center text-white font-semibold cursor-pointer hover:bg-spotify-green-hover transition-colors">
               {user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
           )}
@@ -152,4 +161,3 @@ const TopBar = () => {
 };
 
 export default TopBar;
-

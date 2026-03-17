@@ -55,7 +55,6 @@ export default function Questionnaire() {
 
     setIsSubmitting(true);
 
-    // Format arrays for the backend
     const phq9_answers = [];
     const dass21_answers = [];
 
@@ -63,21 +62,11 @@ export default function Questionnaire() {
     stressQuestions.forEach((q, i) => dass21_answers.push(answers[`stress${i}`] || 0));
 
     try {
-      // 1. Send data to backend
-      await apiClient.post("/questionnaire/submit", {
-        phq9_answers,
-        dass21_answers
-      });
-
-      // 2. Save today's date in local storage
+      await apiClient.post("/questionnaire/submit", { phq9_answers, dass21_answers });
       const today = new Date().toISOString().split('T')[0];
       localStorage.setItem("lastAssessmentDate", today);
-
       showSuccessToast("Assessment saved! Redirecting to player...");
-
-      // 3. Immediately redirect to the music player homepage
       navigate("/musichome");
-
     } catch (error) {
       console.error("Failed to submit questionnaire:", error);
       showErrorToast("Failed to save to server, but redirecting to player.");
@@ -89,19 +78,19 @@ export default function Questionnaire() {
 
   /* TABLE RENDER HELPER */
   const renderTable = (title, questions, prefix) => (
-    <div className="mb-10">
-      <h2 className="text-xl font-bold mb-4 text-slate-800 border-l-4 border-indigo-600 pl-3">
+    <div className="mb-8 md:mb-10">
+      <h2 className="text-lg md:text-xl font-bold mb-4 text-slate-800 border-l-4 border-indigo-600 pl-3">
         {title}
       </h2>
       <div className="overflow-x-auto shadow-sm rounded-lg border border-slate-200">
-        <table className="w-full text-left border-collapse bg-white min-w-[800px]">
+        <table className="w-full text-left border-collapse bg-white min-w-[700px] md:min-w-[800px]">
           <thead>
             <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
-              <th className="p-4 font-semibold w-2/5">Question / ප්‍රශ්නය</th>
+              <th className="p-3 md:p-4 font-semibold w-2/5 text-sm md:text-base">Question / ප්‍රශ්නය</th>
               {options.map((opt) => (
-                <th key={opt.value} className="p-4 text-center font-semibold text-sm w-[15%]">
+                <th key={opt.value} className="p-2 md:p-4 text-center font-semibold text-xs md:text-sm w-[15%]">
                   {opt.en}
-                  <div className="text-xs text-slate-500 font-normal mt-1">{opt.si}</div>
+                  <div className="text-[10px] md:text-xs text-slate-500 font-normal mt-1">{opt.si}</div>
                 </th>
               ))}
             </tr>
@@ -111,14 +100,14 @@ export default function Questionnaire() {
               const inputName = `${prefix}${i}`;
               return (
                 <tr key={i} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 text-slate-800 text-sm">
+                  <td className="p-3 md:p-4 text-slate-800 text-xs md:text-sm">
                     <span className="font-medium">{i + 1}. {q.en}</span>
                     <div className="text-slate-500 mt-1">{q.si}</div>
                   </td>
                   {options.map((opt) => (
                     <td
                       key={opt.value}
-                      className="p-4 text-center cursor-pointer"
+                      className="p-2 md:p-4 text-center cursor-pointer"
                       onClick={() => handleAnswer(inputName, opt.value)}
                     >
                       <input
@@ -127,7 +116,7 @@ export default function Questionnaire() {
                         value={opt.value}
                         checked={answers[inputName] === opt.value}
                         onChange={() => handleAnswer(inputName, opt.value)}
-                        className="w-5 h-5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        className="w-4 h-4 md:w-5 md:h-5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </td>
                   ))}
@@ -141,12 +130,12 @@ export default function Questionnaire() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-8 font-sans">
+    <div className="min-h-screen bg-slate-50 py-6 md:py-10 px-4 sm:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Mental Health Assessment</h1>
-          <p className="text-slate-500 mt-2 text-lg">මානසික සෞඛ්‍ය ප්‍රශ්නාවලිය</p>
-          <p className="text-sm text-slate-400 mt-2 max-w-2xl mx-auto">
+        <div className="mb-8 md:mb-10 text-center">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">Mental Health Assessment</h1>
+          <p className="text-slate-500 mt-1 md:mt-2 text-base md:text-lg">මානසික සෞඛ්‍ය ප්‍රශ්නාවලිය</p>
+          <p className="text-xs md:text-sm text-slate-400 mt-2 max-w-2xl mx-auto">
             Please select the best option for each question. Your results will be calculated and shown after your listening session.
           </p>
         </div>
@@ -154,11 +143,11 @@ export default function Questionnaire() {
         {renderTable("PHQ-9 Depression Assessment", phqQuestions, "phq")}
         {renderTable("DASS-21 Stress Assessment", stressQuestions, "stress")}
 
-        <div className="flex justify-center mt-8 pb-12">
+        <div className="flex justify-center mt-6 pb-12">
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-10 py-4 rounded-lg font-bold text-lg shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-8 py-3 md:px-10 md:py-4 rounded-lg font-bold text-base md:text-lg shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Saving Answers..." : "Submit & Go To Player"}
           </button>
