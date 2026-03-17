@@ -255,7 +255,7 @@ export const PlayerProvider = ({ children }) => {
 
     console.log("Total Accurate Listening Seconds:", totalListeningSeconds);
 
-    const MINIMUM = 0;
+    const MINIMUM = 1;
 
     if (totalListeningSeconds < MINIMUM) {
       const remaining = Math.ceil((MINIMUM - totalListeningSeconds) / 60);
