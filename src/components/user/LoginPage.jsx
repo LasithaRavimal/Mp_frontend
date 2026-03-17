@@ -14,24 +14,30 @@ const LoginPage = () => {
   const { login, register, googleLogin } = useAuth();
   const navigate = useNavigate();
 
+ // ==========================================
+  // SMART ROUTING LOGIC (DATABASE CHECK)
   // ==========================================
-  // SMART ROUTING LOGIC
-  // ==========================================
-  const handleSuccessfulAuth = (role) => {
-    if (role === 'admin') {
+  const handleSuccessfulAuth = async (user) => {
+    if (user.role === 'admin') {
       navigate('/admin');
-    } else {
-      // Check if the user has already done the assessment today
-      const lastAssessment = localStorage.getItem('lastAssessmentDate');
-      const today = new Date().toISOString().split('T')[0];
-
-      if (lastAssessment === today) {
-        // Already did the test -> Go straight to Music Player!
+      return;
+    } 
+    
+    try {
+      
+      const response = await apiClient.get('/questionnaire/check-today'); 
+      
+      if (response.data.has_done_today) {
+       
         navigate('/musichome');
       } else {
-        // Needs to do the test -> Go to Landing Page
+        
         navigate('/landing');
       }
+    } catch (error) {
+      console.error("Failed to check assessment status:", error);
+      
+      navigate('/landing');
     }
   };
 
@@ -46,7 +52,8 @@ const LoginPage = () => {
         : await register(email, password);
 
       if (result.success) {
-        handleSuccessfulAuth(result.user.role);
+        
+        await handleSuccessfulAuth(result.user);
       } else {
         setError(result.error);
       }
@@ -64,7 +71,8 @@ const LoginPage = () => {
     try {
       const result = await googleLogin(token);
       if (result.success) {
-        handleSuccessfulAuth(result.user.role);
+        
+        await handleSuccessfulAuth(result.user);
       } else {
         setError(result.error);
       }
