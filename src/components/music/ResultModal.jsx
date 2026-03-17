@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MdClose, MdAssessment, MdAudiotrack, MdInfo } from 'react-icons/md';
 import apiClient from '../../api/apiClient';
+import { useAuth } from '../../context/AuthContext'; // 👈 IMPORT ADDED HERE
 
 const PredictionModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
+  const { logout } = useAuth(); // 👈 GET LOGOUT FUNCTION HERE
   const [questionnaireData, setQuestionnaireData] = useState(null);
   const [musicPrediction, setMusicPrediction] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,10 +45,11 @@ const PredictionModal = ({ isOpen, onClose }) => {
     return 'text-spotify-green border-spotify-green/30 bg-spotify-green/10';
   };
 
-  // ✅ NEW FUNCTION: Closes modal AND redirects to landing page
+  // ✅ UPDATED FUNCTION: Closes modal, LOGS OUT the user, and redirects to login
   const handleDoneClick = () => {
     if (onClose) onClose();
-    navigate('/landing');
+    logout(); // 👈 LOGS THE USER OUT
+    navigate('/login'); // 👈 REDIRECTS TO LOGIN PAGE
   };
 
   if (!isOpen) return null;
