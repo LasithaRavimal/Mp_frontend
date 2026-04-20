@@ -46,7 +46,6 @@ const calculateSessionLengthBucket = (startTime, endTime) => {
   
   const durationMinutes = (endTime - startTime) / (1000 * 60);
   
-  // FIX: isNaN check added to prevent "More than 1 hour" bug
   if (isNaN(durationMinutes) || durationMinutes < 10) return 'Less than 10 min';
   if (durationMinutes < 30) return '10-30 min';
   if (durationMinutes < 60) return '30-60 min';
@@ -138,9 +137,8 @@ export const SessionProvider = ({ children }) => {
       if (existingSessionResponse?.data?.session_id) {
         setActiveSession(existingSessionResponse.data.session_id);
         
-        // Use backend start time to calculate true session length. 
-        const backendStartTime = existingSessionResponse.data.started_at;
-        setSessionStartTime(backendStartTime ? new Date(backendStartTime) : new Date());
+        // FIX: Always use current time (NOW) to prevent old sessions showing "More than 1 hour"
+        setSessionStartTime(new Date());
         
         updateActivity();
         return existingSessionResponse.data.session_id;
@@ -154,9 +152,8 @@ export const SessionProvider = ({ children }) => {
       const sessionId = response.data.session_id;
       setActiveSession(sessionId);
       
-      // FIX: Fallback to new Date() if started_at is missing from response
-      const newBackendStartTime = response.data.started_at;
-      setSessionStartTime(newBackendStartTime ? new Date(newBackendStartTime) : new Date());
+      // FIX: Always use current time (NOW)
+      setSessionStartTime(new Date());
       
       setSessionEvents([]);
       setSongsPlayed([]);
