@@ -12,6 +12,55 @@ export const useSession = () => {
   return context;
 };
 
+// --- HELPER FUNCTIONS MOVED OUTSIDE TO PREVENT STALE CLOSURES ---
+const getMostFrequentCategory = (songsPlayed = []) => {
+  const categories = songsPlayed.map(s => s.category).filter(Boolean);
+  if (categories.length === 0) return 'calm';
+  
+  const counts = {};
+  categories.forEach(cat => {
+    counts[cat] = (counts[cat] || 0) + 1;
+  });
+  
+  return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'calm');
+};
+
+const getAverageVolumeBucket = (volumeHistory = []) => {
+  if (volumeHistory.length === 0) return 'Medium';
+  
+  const avgVolume = volumeHistory.reduce((sum, v) => sum + v.volume, 0) / volumeHistory.length;
+  if (avgVolume < 0.33) return 'Low';
+  if (avgVolume < 0.67) return 'Medium';
+  return 'High';
+};
+
+const getSongDiversityBucket = (songsPlayed = []) => {
+  const uniqueCategories = new Set(songsPlayed.map(s => s.category).filter(Boolean)).size;
+  if (uniqueCategories === 1) return 'One category';
+  if (uniqueCategories <= 3) return '2-3 categories';
+  return 'More than 3 categories';
+};
+
+const calculateSessionLengthBucket = (startTime, endTime) => {
+  if (!startTime) return 'Less than 10 min';
+  const durationMinutes = (endTime - startTime) / (1000 * 60);
+  if (durationMinutes < 10) return 'Less than 10 min';
+  if (durationMinutes < 30) return '10-30 min';
+  if (durationMinutes < 60) return '30-60 min';
+  return 'More than 1 hour';
+};
+
+const getListeningTimeOfDay = () => {
+  const hour = new Date().getHours();
+  
+  if (hour >= 5 && hour < 11) return 'Morning (5am-11am)';
+  if (hour >= 11 && hour < 15) return 'Afternoon (11am-3pm)';
+  if (hour >= 15 && hour < 20) return 'Evening (3pm-8pm)';
+  if (hour >= 20 && hour < 24) return 'Night (8pm-12am)';
+  return 'Midnight (12am-5am)';
+};
+// ----------------------------------------------------------------
+
 export const SessionProvider = ({ children }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -22,64 +71,77 @@ export const SessionProvider = ({ children }) => {
   const [lastActivityTime, setLastActivityTime] = useState(null);
   
   // Song tracking
-  const [songsPlayed, setSongsPlayed] = useState([]); // Array of {songId, category, duration, timestamp}
-  const [songDurations, setSongDurations] = useState(new Map()); // songId -> total duration listened
+  const [songsPlayed, setSongsPlayed] = useState([]); 
+  // FIX: Converted Map to standard JS Object for React State
+  const [songDurations, setSongDurations] = useState({}); 
   const [skipCount, setSkipCount] = useState(0);
   const [repeatCount, setRepeatCount] = useState(0);
-  const [volumeHistory, setVolumeHistory] = useState([]); // Array of {volume, timestamp}
+  const [volumeHistory, setVolumeHistory] = useState([]); 
   
   // Inactivity timer
   const inactivityTimerRef = useRef(null);
-  const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
+  const INACTIVITY_TIMEOUT = 10 * 60 * 1000; 
+  
+  // FIX: Create a ref to hold latest session data for the tab-close event
+  const sessionDataRef = useRef({
+    activeSession,
+    sessionEvents,
+    sessionStartTime,
+    songsPlayed,
+    volumeHistory,
+    skipCount,
+    repeatCount
+  });
+
+  // Sync ref with state so `beforeunload` always has fresh data
+  useEffect(() => {
+    sessionDataRef.current = {
+      activeSession,
+      sessionEvents,
+      sessionStartTime,
+      songsPlayed,
+      volumeHistory,
+      skipCount,
+      repeatCount
+    };
+  }, [activeSession, sessionEvents, sessionStartTime, songsPlayed, volumeHistory, skipCount, repeatCount]);
   
   // Update last activity time
   const updateActivity = useCallback(() => {
     const now = new Date();
     setLastActivityTime(now);
     
-    // Clear existing inactivity timer
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
     
-    // Set new inactivity timer
     inactivityTimerRef.current = setTimeout(() => {
       if (activeSession) {
         endSession();
       }
     }, INACTIVITY_TIMEOUT);
-  }, [activeSession]);
+  }, [activeSession]); // eslint-disable-line react-hooks/exhaustive-deps
+  // (Ignoring endSession dependency warning here to avoid circular dependency, or you can move endSession up)
   
   // Start a new session
   const startSession = useCallback(async (songId = null) => {
-    // Disable session tracking for admin users
     if (isAdmin) {
       console.log('Session tracking disabled for admin users');
       return null;
     }
     
     try {
-      // Check if there's already an active session
       const existingSessionResponse = await apiClient.get('/sessions/active').catch(() => null);
       
-      // if (existingSessionResponse?.data?.session_id) {
-      //   // Use existing active session
-      //   setActiveSession(existingSessionResponse.data.session_id);
-      //   setSessionStartTime(new Date(existingSessionResponse.data.started_at));
-      //   updateActivity();
-      //   return existingSessionResponse.data.session_id;
-      // }
-
-   if (existingSessionResponse?.data?.session_id) {
-  setActiveSession(existingSessionResponse.data.session_id);
-
-  // FIX: ML session start time MUST be NOW
-  setSessionStartTime(new Date());
-
-  updateActivity();
-  return existingSessionResponse.data.session_id;
-}
-
+      if (existingSessionResponse?.data?.session_id) {
+        setActiveSession(existingSessionResponse.data.session_id);
+        
+        // FIX: Use backend start time to calculate true session length. 
+        setSessionStartTime(new Date(existingSessionResponse.data.started_at));
+        
+        updateActivity();
+        return existingSessionResponse.data.session_id;
+      }
       
       // Start new session
       const response = await apiClient.post('/sessions/start', {
@@ -91,7 +153,7 @@ export const SessionProvider = ({ children }) => {
       setSessionStartTime(new Date(response.data.started_at));
       setSessionEvents([]);
       setSongsPlayed([]);
-      setSongDurations(new Map());
+      setSongDurations({}); // Reset Object
       setSkipCount(0);
       setRepeatCount(0);
       setVolumeHistory([]);
@@ -116,14 +178,12 @@ export const SessionProvider = ({ children }) => {
     setSessionEvents(prev => [...prev, eventWithTimestamp]);
     updateActivity();
     
-    // Send heartbeat to backend
     apiClient.post('/sessions/heartbeat', null, {
       params: { session_id: activeSession }
     }).catch(err => {
-      // Silently fail - session might have been auto-ended
       console.debug('Heartbeat failed (may be expected):', err);
     });
-  }, [activeSession, updateActivity]);
+  }, [activeSession, updateActivity, isAdmin]);
   
   // Track song play
   const trackSongPlay = useCallback((songId, category, startTime) => {
@@ -139,9 +199,9 @@ export const SessionProvider = ({ children }) => {
       songId,
       category,
       startTime: new Date(),
-      duration: 0 // Will be updated on pause/end
+      duration: 0 
     }]);
-  }, [activeSession, trackEvent]);
+  }, [activeSession, trackEvent, isAdmin]);
   
   // Track song pause/finish
   const trackSongPause = useCallback((songId, duration) => {
@@ -153,22 +213,19 @@ export const SessionProvider = ({ children }) => {
       duration
     });
     
-    // Update song duration
-    setSongDurations(prev => {
-      const newMap = new Map(prev);
-      const currentDuration = newMap.get(songId) || 0;
-      newMap.set(songId, currentDuration + duration);
-      return newMap;
-    });
+    // FIX: Using Object instead of Map
+    setSongDurations(prev => ({
+      ...prev,
+      [songId]: (prev[songId] || 0) + duration
+    }));
     
-    // Update songsPlayed array with duration
     setSongsPlayed(prev => prev.map(song => {
       if (song.songId === songId && song.duration === 0) {
         return { ...song, duration: duration };
       }
       return song;
     }));
-  }, [activeSession, trackEvent]);
+  }, [activeSession, trackEvent, isAdmin]);
   
   // Track skip
   const trackSkip = useCallback((songId) => {
@@ -179,7 +236,7 @@ export const SessionProvider = ({ children }) => {
       type: 'skip',
       song_id: songId
     });
-  }, [activeSession, trackEvent]);
+  }, [activeSession, trackEvent, isAdmin]);
   
   // Track repeat
   const trackRepeat = useCallback((songId) => {
@@ -190,7 +247,7 @@ export const SessionProvider = ({ children }) => {
       type: 'repeat',
       song_id: songId
     });
-  }, [activeSession, trackEvent]);
+  }, [activeSession, trackEvent, isAdmin]);
   
   // Track volume change
   const trackVolumeChange = useCallback((volume) => {
@@ -205,29 +262,28 @@ export const SessionProvider = ({ children }) => {
       type: 'volume_change',
       volume
     });
-  }, [activeSession, trackEvent]);
+  }, [activeSession, trackEvent, isAdmin]);
   
   // End session - Real Data Aggregation
   const endSession = useCallback(async (customAggregatedData = null) => {
     if (isAdmin || !activeSession) return null;
     
     try {
-      // Clear inactivity timer
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
         inactivityTimerRef.current = null;
       }
       
-      // 🟢 REAL DATA CALCULATION
+      // FIX: Passing state to pure helper functions
       const realAggregatedData = customAggregatedData || {
-        song_category_mode: _getMostFrequentCategory(),
+        song_category_mode: getMostFrequentCategory(songsPlayed),
         skip_rate_bucket: skipCount === 0 ? 'Never' : skipCount <= 2 ? '1-2 times' : skipCount <= 5 ? '3-5 times' : 'More than 5 times',
         repeat_bucket: repeatCount === 0 ? 'None' : repeatCount <= 2 ? '1-2 times' : repeatCount <= 5 ? '3-5 times' : 'More than 5 times',
         duration_ratio_bucket: 'Around 50%',
-        session_length_bucket: sessionStartTime ? _calculateSessionLengthBucket(sessionStartTime, new Date()) : 'Less than 10 min',
-        volume_level_bucket: _getAverageVolumeBucket(),
-        song_diversity_bucket: _getSongDiversityBucket(),
-        listening_time_of_day: _getListeningTimeOfDay()
+        session_length_bucket: calculateSessionLengthBucket(sessionStartTime, new Date()),
+        volume_level_bucket: getAverageVolumeBucket(volumeHistory),
+        song_diversity_bucket: getSongDiversityBucket(songsPlayed),
+        listening_time_of_day: getListeningTimeOfDay()
       };
       
       const response = await apiClient.post('/sessions/end', {
@@ -242,7 +298,7 @@ export const SessionProvider = ({ children }) => {
       setSessionStartTime(null);
       setLastActivityTime(null);
       setSongsPlayed([]);
-      setSongDurations(new Map());
+      setSongDurations({});
       setSkipCount(0);
       setRepeatCount(0);
       setVolumeHistory([]);
@@ -256,53 +312,44 @@ export const SessionProvider = ({ children }) => {
     }
   }, [activeSession, sessionEvents, isAdmin, skipCount, repeatCount, sessionStartTime, songsPlayed, volumeHistory]);
   
-          // End session on logout
-          useEffect(() => {
-            if (!user && activeSession) {
-              // User logged out, end session before clearing state
-              endSession().catch(err => console.error('Failed to end session on logout:', err));
-            }
-          }, [user, activeSession, endSession]);
+  // End session on logout
+  useEffect(() => {
+    if (!user && activeSession) {
+      endSession().catch(err => console.error('Failed to end session on logout:', err));
+    }
+  }, [user, activeSession, endSession]);
   
-  // Tab close handler - send beacon if session active
+  // Tab close handler
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (activeSession) {
-        // Try to end session using sendBeacon
-        // Note: sendBeacon only sends simple data, so we'll just notify backend
-        // The backend cron will handle cleanup if this fails
-        const data = JSON.stringify({
-          session_id: activeSession,
-          action: 'tab_close'
-        });
-        
-        // Try to end session with aggregated data using sendBeacon or fetch
-        // Note: This may not complete, so backend cron will handle cleanup
+      // FIX: Pull from sessionDataRef.current instead of state directly
+      const currentData = sessionDataRef.current;
+      
+      if (currentData.activeSession) {
         const token = localStorage.getItem('token');
+        
         const aggregatedData = {
-          song_category_mode: _getMostFrequentCategory(),
-          skip_rate_bucket: skipCount === 0 ? 'Never' : skipCount <= 2 ? '1-2 times' : skipCount <= 5 ? '3-5 times' : 'More than 5 times',
-          repeat_bucket: repeatCount === 0 ? 'None' : repeatCount <= 2 ? '1-2 times' : repeatCount <= 5 ? '3-5 times' : 'More than 5',
+          song_category_mode: getMostFrequentCategory(currentData.songsPlayed),
+          skip_rate_bucket: currentData.skipCount === 0 ? 'Never' : currentData.skipCount <= 2 ? '1-2 times' : currentData.skipCount <= 5 ? '3-5 times' : 'More than 5 times',
+          repeat_bucket: currentData.repeatCount === 0 ? 'None' : currentData.repeatCount <= 2 ? '1-2 times' : currentData.repeatCount <= 5 ? '3-5 times' : 'More than 5',
           duration_ratio_bucket: 'Around 50%',
-          session_length_bucket: sessionStartTime ? _calculateSessionLengthBucket(sessionStartTime, new Date()) : 'Less than 10 min',
-          volume_level_bucket: _getAverageVolumeBucket(),
-          song_diversity_bucket: _getSongDiversityBucket(),
-          listening_time_of_day: _getListeningTimeOfDay()
+          session_length_bucket: calculateSessionLengthBucket(currentData.sessionStartTime, new Date()),
+          volume_level_bucket: getAverageVolumeBucket(currentData.volumeHistory),
+          song_diversity_bucket: getSongDiversityBucket(currentData.songsPlayed),
+          listening_time_of_day: getListeningTimeOfDay()
         };
         
         const payload = JSON.stringify({
-          session_id: activeSession,
-          events: sessionEvents.slice(-10), // Last 10 events only
+          session_id: currentData.activeSession,
+          events: currentData.sessionEvents.slice(-10), 
           aggregated_data: aggregatedData
         });
         
-        // Try sendBeacon first (more reliable for tab close)
         if (navigator.sendBeacon) {
           const blob = new Blob([payload], { type: 'application/json' });
           const url = `${window.location.origin}/api/sessions/end`;
           navigator.sendBeacon(url, blob);
         } else {
-          // Fallback to fetch with keepalive
           fetch('/api/sessions/end', {
             method: 'POST',
             body: payload,
@@ -311,64 +358,15 @@ export const SessionProvider = ({ children }) => {
               ...(token && { Authorization: `Bearer ${token}` })
             },
             keepalive: true
-          }).catch(() => {
-            // Ignore errors on tab close - backend cron will handle
-          });
+          }).catch(() => {});
         }
       }
     };
     
     window.addEventListener('beforeunload', handleBeforeUnload);
+    // FIX: Empty dependency array prevents listener thrashing!
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [activeSession, sessionEvents, skipCount, repeatCount, sessionStartTime]);
-  
-  // Helper functions
-  const _getMostFrequentCategory = () => {
-    const categories = songsPlayed.map(s => s.category).filter(Boolean);
-    if (categories.length === 0) return 'calm';
-    
-    const counts = {};
-    categories.forEach(cat => {
-      counts[cat] = (counts[cat] || 0) + 1;
-    });
-    
-    return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'calm');
-  };
-  
-  const _getAverageVolumeBucket = () => {
-    if (volumeHistory.length === 0) return 'Medium';
-    
-    const avgVolume = volumeHistory.reduce((sum, v) => sum + v.volume, 0) / volumeHistory.length;
-    if (avgVolume < 0.33) return 'Low';
-    if (avgVolume < 0.67) return 'Medium';
-    return 'High';
-  };
-  
-  const _getSongDiversityBucket = () => {
-    const uniqueCategories = new Set(songsPlayed.map(s => s.category).filter(Boolean)).size;
-    if (uniqueCategories === 1) return 'One category';
-    if (uniqueCategories <= 3) return '2-3 categories';
-    return 'More than 3 categories';
-  };
-  
-  const _calculateSessionLengthBucket = (startTime, endTime) => {
-    const durationMinutes = (endTime - startTime) / (1000 * 60);
-    if (durationMinutes < 10) return 'Less than 10 min';
-    if (durationMinutes < 30) return '10-30 min';
-    if (durationMinutes < 60) return '30-60 min';
-    return 'More than 1 hour';
-  };
-  
-  const _getListeningTimeOfDay = () => {
-    const now = new Date();
-    const hour = now.getHours();
-    
-    if (hour >= 5 && hour < 11) return 'Morning (5am-11am)';
-    if (hour >= 11 && hour < 15) return 'Afternoon (11am-3pm)';
-    if (hour >= 15 && hour < 20) return 'Evening (3pm-8pm)';
-    if (hour >= 20 && hour < 24) return 'Night (8pm-12am)';
-    return 'Midnight (12am-5am)';
-  };
+  }, []); 
   
   // Cleanup on unmount
   useEffect(() => {
@@ -407,4 +405,3 @@ export const SessionProvider = ({ children }) => {
     </SessionContext.Provider>
   );
 };
-
