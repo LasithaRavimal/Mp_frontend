@@ -43,10 +43,14 @@ const getSongDiversityBucket = (songsPlayed = []) => {
 
 const calculateSessionLengthBucket = (startTime, endTime) => {
   if (!startTime) return 'Less than 10 min';
+  
   const durationMinutes = (endTime - startTime) / (1000 * 60);
-  if (durationMinutes < 10) return 'Less than 10 min';
+  
+  // FIX: isNaN check added to prevent "More than 1 hour" bug
+  if (isNaN(durationMinutes) || durationMinutes < 10) return 'Less than 10 min';
   if (durationMinutes < 30) return '10-30 min';
   if (durationMinutes < 60) return '30-60 min';
+  
   return 'More than 1 hour';
 };
 
@@ -72,7 +76,6 @@ export const SessionProvider = ({ children }) => {
   
   // Song tracking
   const [songsPlayed, setSongsPlayed] = useState([]); 
-  // FIX: songDurations is kept as a Map so other components don't break
   const [songDurations, setSongDurations] = useState(new Map()); 
   const [skipCount, setSkipCount] = useState(0);
   const [repeatCount, setRepeatCount] = useState(0);
@@ -136,7 +139,8 @@ export const SessionProvider = ({ children }) => {
         setActiveSession(existingSessionResponse.data.session_id);
         
         // Use backend start time to calculate true session length. 
-        setSessionStartTime(new Date(existingSessionResponse.data.started_at));
+        const backendStartTime = existingSessionResponse.data.started_at;
+        setSessionStartTime(backendStartTime ? new Date(backendStartTime) : new Date());
         
         updateActivity();
         return existingSessionResponse.data.session_id;
@@ -149,7 +153,11 @@ export const SessionProvider = ({ children }) => {
       
       const sessionId = response.data.session_id;
       setActiveSession(sessionId);
-      setSessionStartTime(new Date(response.data.started_at));
+      
+      // FIX: Fallback to new Date() if started_at is missing from response
+      const newBackendStartTime = response.data.started_at;
+      setSessionStartTime(newBackendStartTime ? new Date(newBackendStartTime) : new Date());
+      
       setSessionEvents([]);
       setSongsPlayed([]);
       setSongDurations(new Map()); // Reset Map
