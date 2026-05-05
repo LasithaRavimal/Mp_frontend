@@ -202,9 +202,7 @@ const ResearchDashboard = () => {
 
                           <br />
 
-                          <span className="opacity-70 mt-1 block">
-                            {new Date(row.date).toLocaleTimeString()}
-                          </span>
+                        
 
                         </td>
 
